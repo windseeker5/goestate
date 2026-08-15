@@ -1,0 +1,3 @@
+# Dev-only dependency for generating the sample test PDF fixture.
+# Not needed to run the app or the ingestion pipeline itself.
+reportlab>=5.0.0

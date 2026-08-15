@@ -1,0 +1,36 @@
+{#
+  Card component wrapper.
+
+  Usage:
+    {% from "components/card.html" import card %}
+    {% call card(title="Revenue", description="Last 30 days") %}
+      <p class="text-2xl font-bold">$48,290</p>
+    {% endcall %}
+
+  Params:
+    title       {string}  Card heading (h2). Optional.
+    description {string}  Subtext under the title. Optional.
+    action      {string}  Raw HTML for the top-right card-action slot. Optional.
+    footer      {string}  Raw HTML for the footer. Optional.
+    size        {string}  "sm" for the compact Basecoat card size. Optional.
+    class_      {string}  Extra classes on the card root. Optional.
+#}
+{% macro card(title=None, description=None, action=None, footer=None, size=None, class_="") %}
+<div class="card {{ class_ }}" {% if size %}data-size="{{ size }}"{% endif %}>
+  {% if title or description or action %}
+  <header>
+    {% if title %}<h2>{{ title }}</h2>{% endif %}
+    {% if description %}<p>{{ description }}</p>{% endif %}
+    {% if action %}<div class="card-action">{{ action | safe }}</div>{% endif %}
+  </header>
+  {% endif %}
+  <section>
+    {{ caller() }}
+  </section>
+  {% if footer %}
+  <footer>
+    {{ footer | safe }}
+  </footer>
+  {% endif %}
+</div>
+{% endmacro %}

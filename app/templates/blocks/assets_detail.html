@@ -1,0 +1,63 @@
+{% extends "layouts/app.html" %}
+{% from "components/page_header.html" import page_header %}
+
+{% block title %}{{ item.name }} – Estate Copilot{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('list_assets') }}" class="hover:underline text-muted-foreground">Assets</a>
+  <span class="mx-2 text-muted-foreground">/</span>
+  {{ item.name }}
+{% endblock %}
+
+{% block content %}
+
+{{ page_header(
+  title=item.name,
+  action=('<a href="' ~ url_for("edit_asset", item_id=item.id) ~ '" class="btn" data-variant="outline">Edit</a>') if g.user.role == "admin" else None
+) }}
+
+<div class="grid gap-4 md:grid-cols-3">
+  <div class="card {{ 'md:col-span-2' if g.user.role == 'admin' else 'md:col-span-3' }}">
+    <header><h2>Details</h2></header>
+    <section>
+      <dl class="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
+        <div>
+          <dt class="text-xs text-muted-foreground uppercase tracking-wide">Category</dt>
+          <dd class="mt-1 font-medium">{{ item.category or "—" }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-muted-foreground uppercase tracking-wide">Estimated Value</dt>
+          <dd class="mt-1 font-medium">{{ "$%.2f"|format(item.estimated_value) if item.estimated_value else "—" }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-muted-foreground uppercase tracking-wide">Sale Price</dt>
+          <dd class="mt-1 font-medium">{{ "$%.2f"|format(item.sale_price) if item.sale_price else "—" }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-muted-foreground uppercase tracking-wide">Status</dt>
+          <dd class="mt-1">
+            <span class="badge" data-variant="{{ 'secondary' if item.status in ('Sold', 'Distributed') else 'outline' }}">{{ item.status }}</span>
+          </dd>
+        </div>
+      </dl>
+      {% if item.notes %}
+      <div class="mt-4">
+        <dt class="text-xs text-muted-foreground uppercase tracking-wide">Notes</dt>
+        <dd class="mt-1 whitespace-pre-wrap">{{ item.notes }}</dd>
+      </div>
+      {% endif %}
+    </section>
+  </div>
+  {% if g.user.role == "admin" %}
+  <div class="card">
+    <header><h2>Actions</h2></header>
+    <section class="flex flex-col gap-2">
+      <a href="{{ url_for('edit_asset', item_id=item.id) }}" class="btn w-full" data-variant="outline">Edit</a>
+      <form method="post" action="{{ url_for('delete_asset', item_id=item.id) }}" onsubmit="return confirm('Delete this asset?');">
+        <button type="submit" class="btn w-full" data-variant="destructive">Delete</button>
+      </form>
+    </section>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

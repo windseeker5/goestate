@@ -1,0 +1,77 @@
+{% extends "layouts/app.html" %}
+{% from "components/page_header.html" import page_header %}
+{% from "components/alert.html" import alert %}
+
+{% block title %}Settings – Estate Copilot{% endblock %}
+{% block breadcrumb %}Settings{% endblock %}
+
+{% block content %}
+{{ page_header(title="Settings", description="LLM configuration and user management.") }}
+
+{% if saved %}
+{{ alert(message="Settings saved.") }}
+{% endif %}
+
+<div class="max-w-2xl">
+  <div class="card mb-6">
+    <header>
+      <h2>LLM Provider</h2>
+      <p>Any OpenAI-compatible /v1/chat/completions endpoint works — local (Ollama, LM Studio) or cloud (OpenRouter, OpenAI).</p>
+    </header>
+    <section>
+      <form id="llm-settings-form" method="post" class="grid gap-5">
+        <div class="grid gap-2">
+          <label class="label" for="llm_api_base_url">API Base URL</label>
+          <input
+            class="input" type="text" id="llm_api_base_url" name="llm_api_base_url"
+            value="{{ settings.llm_api_base_url or '' }}"
+            placeholder="e.g. http://localhost:11434/v1 (Ollama)"
+          />
+          <p class="text-xs text-muted-foreground">
+            Examples: <code>http://localhost:11434/v1</code> (Ollama) &middot;
+            <code>https://openrouter.ai/api/v1</code> &middot;
+            <code>https://api.openai.com/v1</code>
+          </p>
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="llm_model_name">Model Name</label>
+          <input
+            class="input" type="text" id="llm_model_name" name="llm_model_name"
+            value="{{ settings.llm_model_name or '' }}"
+            placeholder="e.g. llama3.1:latest"
+          />
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="llm_api_key">API Key</label>
+          <input
+            class="input" type="password" id="llm_api_key" name="llm_api_key"
+            value="{{ settings.llm_api_key or '' }}"
+            placeholder="Leave empty for local providers like Ollama"
+          />
+        </div>
+      </form>
+    </section>
+    <footer class="justify-end">
+      <button type="submit" form="llm-settings-form" class="btn">Save settings</button>
+    </footer>
+  </div>
+
+  {#
+    User Management card — replaces the sidebar "Users" link.
+    Kept admin-only since this page is already @admin_required.
+  #}
+  <div class="card">
+    <header>
+      <h2>User Management</h2>
+      <p>Manage who can sign in. Admins can edit everything; viewers can browse and use chat only.</p>
+    </header>
+    <section>
+      <a href="{{ url_for('list_users') }}" class="btn" data-variant="outline">
+        <svg data-icon="inline-start" class="lucide lucide-users" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Manage users
+      </a>
+    </section>
+  </div>
+</div>
+
+{% endblock %}

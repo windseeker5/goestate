@@ -1,0 +1,91 @@
+{% extends "layouts/app.html" %}
+{% from "components/page_header.html" import page_header %}
+{% from "components/stat_card.html"   import stat_card %}
+{% from "components/empty_state.html" import empty_state %}
+{% from "components/timeline.html"    import timeline %}
+{% from "basecoat/dropdown-menu.html.jinja" import dropdown_menu %}
+
+{% block title %}Dashboard – Estate Copilot{% endblock %}
+{% block breadcrumb %}{% endblock %}
+
+{% block content %}
+
+{% set first_name = display_name.split(" ")[0] if display_name else "" %}
+{#
+  The "Quick Add" action button lives to the right of the welcome heading.
+  It gives both desktop and mobile users instant access to the most common
+  create-new actions without navigating away first.
+  Only admin users can create things, so the button is admin-only.
+#}
+{% set quick_add_trigger %}
+<svg data-icon="inline-start" class="lucide lucide-plus-circle" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
+Quick add
+{% endset %}
+{{ page_header(
+  title=("Welcome back, " ~ first_name ~ ".") if first_name else "Welcome back.",
+  description="Here's a quick look at where things stand.",
+  action=dropdown_menu(
+    trigger=quick_add_trigger,
+    trigger_attrs={"class": "btn", "data-variant": "outline"},
+    popover_attrs={"data-align": "end"},
+    items=[
+      {"label": "Log timeline entry", "url": url_for("new_event"),      "icon": '<svg class="lucide lucide-calendar-clock" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h5"/><path d="M17.5 17.5 16 16.25V14"/><circle cx="16" cy="16" r="6"/></svg>'},
+      {"label": "Add asset",          "url": url_for("new_asset"),       "icon": '<svg class="lucide lucide-wallet" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>'},
+      {"label": "Add liability",       "url": url_for("new_liability"),   "icon": '<svg class="lucide lucide-receipt" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M13 16H8"/></svg>'},
+      {"label": "Add document",        "url": url_for("list_documents"),  "icon": '<svg class="lucide lucide-file-plus" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 15h6"/><path d="M12 12v6"/></svg>'},
+      {"type": "separator"},
+      {"label": "Chat with documents",  "url": url_for("chat"),           "icon": '<svg class="lucide lucide-message-square" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'}
+    ]
+  ) | string if g.user and g.user.role == "admin" else None
+) }}
+
+<div class="grid grid-cols-2 gap-4 lg:grid-cols-4 mb-6">
+  {{ stat_card(label="Assets",      value=asset_count|string) }}
+  {{ stat_card(label="Liabilities", value=liability_count|string) }}
+  {{ stat_card(label="Timeline",    value=event_count|string) }}
+  {{ stat_card(label="Documents",   value=document_count|string) }}
+</div>
+
+{#
+  Type -> badge_variant mapping so each entry type gets a visually
+  distinct color, per the request to color-code Meeting/Task/Document/etc
+  the same way the UI Gallery's Timeline component example does.
+#}
+{% set type_badge_variant = {
+  "Meeting": "default",
+  "Task":    "secondary",
+  "Call":    "outline",
+  "Email":   "outline",
+  "Note":    "outline"
+} %}
+
+<div class="card">
+  <header><h2>Latest Activity</h2><p>Most recently logged timeline entries, across everyone with access.</p></header>
+  <section>
+    {% if recent_events %}
+    {% set timeline_items = [] %}
+    {% for row in recent_events %}
+      {% set _ = timeline_items.append({
+        "date": row.event_date or row.created_at.split("T")[0],
+        "title": row.title,
+        "description": row.contact,
+        "badge": row.type,
+        "badge_variant": type_badge_variant.get(row.type, "outline")
+      }) %}
+    {% endfor %}
+    {{ timeline(items=timeline_items) }}
+    {% else %}
+    {{ empty_state(
+      title="No activity yet",
+      description="Calls, meetings, and other timeline entries will show up here as soon as they're logged."
+    ) }}
+    {% endif %}
+  </section>
+  {% if recent_events %}
+  <footer class="justify-end">
+    <a href="{{ url_for('list_events') }}" class="btn" data-variant="ghost" data-size="sm">View full timeline</a>
+  </footer>
+  {% endif %}
+</div>
+
+{% endblock %}

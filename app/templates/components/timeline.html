@@ -1,0 +1,49 @@
+{#
+  Timeline component.
+
+  Vertical activity/event timeline. Useful for succession history, audit
+  logs, or any chronological list of entries.
+
+  Usage:
+    {% from "components/timeline.html" import timeline %}
+    {{ timeline(items=[
+      {"date": "Aug 12, 2026", "title": "Notary meeting",    "description": "Signed the will validation.", "badge": "Meeting"},
+      {"date": "Aug 5, 2026",  "title": "Bank account closed", "description": "RBC chequing account #1234.", "badge": "Task", "badge_variant": "secondary"},
+    ]) }}
+
+  Params:
+    items   {list}   Required. Each item is a dict with:
+                        date          {string} Required. Displayed date/time label.
+                        title         {string} Required. Entry heading.
+                        description   {string} Optional. Supporting text.
+                        badge         {string} Optional. Small label (e.g. entry type).
+                        badge_variant {string} Optional. "default" | "secondary" | "destructive" | "outline".
+    class_  {string}  Extra classes on the root element. Optional.
+#}
+{% macro timeline(items, class_="") %}
+<div class="relative {{ class_ }}">
+  {% for item in items %}
+  <div class="relative flex gap-4 pb-8 last:pb-0">
+    {# Connector line #}
+    {% if not loop.last %}
+    <span class="absolute left-[7px] top-3 h-full w-0.5 bg-border"></span>
+    {% endif %}
+    {# Dot #}
+    <span class="relative z-10 mt-1.5 size-[15px] shrink-0 rounded-full border-2 border-primary bg-background"></span>
+    {# Content #}
+    <div class="flex-1 -mt-0.5">
+      <div class="flex flex-wrap items-center gap-2">
+        <p class="text-sm font-medium">{{ item.title }}</p>
+        {% if item.badge %}
+        <span class="badge" {% if item.badge_variant %}data-variant="{{ item.badge_variant }}"{% endif %}>{{ item.badge }}</span>
+        {% endif %}
+      </div>
+      <p class="text-xs text-muted-foreground mt-0.5">{{ item.date }}</p>
+      {% if item.description %}
+      <p class="text-sm text-muted-foreground mt-1.5">{{ item.description }}</p>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endmacro %}

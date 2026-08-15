@@ -1,0 +1,69 @@
+{% extends "layouts/app.html" %}
+{% from "components/page_header.html" import page_header %}
+{% from "basecoat/select.html.jinja" import select %}
+
+{% set is_edit = item is not none %}
+{% block title %}{{ "Edit" if is_edit else "New" }} Asset – Estate Copilot{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('list_assets') }}" class="hover:underline text-muted-foreground">Assets</a>
+  <span class="mx-2 text-muted-foreground">/</span>
+  {{ "Edit" if is_edit else "New Asset" }}
+{% endblock %}
+
+{% block content %}
+
+{{ page_header(
+  title="Edit Asset" if is_edit else "New Asset",
+  description="Fill in the details below."
+) }}
+
+<div class="max-w-2xl">
+  <div class="card">
+    <header><h2>Asset Details</h2></header>
+    <section>
+      <form id="asset-form" method="post" class="grid gap-5">
+        <div class="grid gap-2">
+          <label class="label" for="name">Name</label>
+          <input class="input" type="text" id="name" name="name" value="{{ item.name if item else '' }}" placeholder="e.g. Family House" required />
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="category">Category</label>
+          <input class="input" type="text" id="category" name="category" value="{{ item.category if item else '' }}" placeholder="e.g. Real Estate, Vehicle, Bank Account" />
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="grid gap-2">
+            <label class="label" for="estimated_value">Estimated Value</label>
+            <input class="input" type="number" step="0.01" id="estimated_value" name="estimated_value" value="{{ item.estimated_value if item else '' }}" />
+          </div>
+          <div class="grid gap-2">
+            <label class="label" for="sale_price">Sale Price</label>
+            <input class="input" type="number" step="0.01" id="sale_price" name="sale_price" value="{{ item.sale_price if item and item.sale_price else '' }}" />
+          </div>
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="status">Status</label>
+          {% set status_items = [] %}
+          {% for s in statuses %}{% set _ = status_items.append({"value": s, "label": s}) %}{% endfor %}
+          {{ select(
+            id="status",
+            name="status",
+            selected=(item.status if item else statuses[0]),
+            items=status_items
+          ) }}
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="notes">Notes</label>
+          <textarea class="input min-h-24" id="notes" name="notes">{{ item.notes if item else '' }}</textarea>
+        </div>
+      </form>
+    </section>
+    <footer class="justify-end gap-2">
+      <a href="{{ url_for('list_assets') }}" class="btn" data-variant="ghost">Cancel</a>
+      <button type="submit" form="asset-form" class="btn">
+        {{ "Save changes" if is_edit else "Create asset" }}
+      </button>
+    </footer>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "layouts/public.html" %}
+
+{% block title %}Login – Estate Copilot{% endblock %}
+
+{% block public_body %}
+<div class="flex min-h-screen flex-col items-center justify-center bg-muted/40 px-4">
+  <div class="w-full max-w-sm">
+
+    {# Logo / brand #}
+    <div class="mb-8 flex flex-col items-center gap-2 text-center">
+      <div class="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground font-bold text-lg">E</div>
+      <h1 class="text-xl font-semibold">Estate Copilot</h1>
+      <p class="text-sm text-muted-foreground">Sign in to continue</p>
+    </div>
+
+    {% if error %}
+    <div class="alert mb-4" data-variant="destructive" role="alert">
+      <svg class="lucide lucide-circle-alert" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <p class="alert-description">{{ error }}</p>
+    </div>
+    {% endif %}
+
+    <div class="card">
+      <section>
+        <form method="post" action="{{ url_for('login') }}" class="grid gap-4">
+          <div class="grid gap-2">
+            <label class="label" for="email">Email</label>
+            <input class="input" type="email" id="email" name="email"
+                   value="{{ email or '' }}"
+                   autocomplete="username" required autofocus />
+          </div>
+          <div class="grid gap-2">
+            <label class="label" for="password">Password</label>
+            <input class="input" type="password" id="password" name="password"
+                   autocomplete="current-password" required />
+          </div>
+          <button type="submit" class="btn w-full">Sign in</button>
+        </form>
+      </section>
+    </div>
+
+    <p class="mt-6 text-center text-xs text-muted-foreground">
+      Local access. Ask your administrator if you don't have an account.
+    </p>
+
+  </div>
+</div>
+{% endblock %}

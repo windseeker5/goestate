@@ -1,0 +1,69 @@
+{% extends "layouts/app.html" %}
+{% from "components/page_header.html" import page_header %}
+{% from "basecoat/select.html.jinja" import select %}
+
+{% set is_edit = item is not none %}
+{% block title %}{{ "Edit" if is_edit else "New" }} Liability – Estate Copilot{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('list_liabilities') }}" class="hover:underline text-muted-foreground">Liabilities</a>
+  <span class="mx-2 text-muted-foreground">/</span>
+  {{ "Edit" if is_edit else "New Liability" }}
+{% endblock %}
+
+{% block content %}
+
+{{ page_header(
+  title="Edit Liability" if is_edit else "New Liability",
+  description="Fill in the details below."
+) }}
+
+<div class="max-w-2xl">
+  <div class="card">
+    <header><h2>Liability Details</h2></header>
+    <section>
+      <form id="liability-form" method="post" class="grid gap-5">
+        <div class="grid gap-2">
+          <label class="label" for="creditor">Creditor</label>
+          <input class="input" type="text" id="creditor" name="creditor" value="{{ item.creditor if item else '' }}" placeholder="e.g. Hydro-Quebec, Funeral Home" required />
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="description">Description</label>
+          <input class="input" type="text" id="description" name="description" value="{{ item.description if item else '' }}" placeholder="e.g. Final electricity bill" />
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="grid gap-2">
+            <label class="label" for="amount">Amount</label>
+            <input class="input" type="number" step="0.01" id="amount" name="amount" value="{{ item.amount if item else '' }}" />
+          </div>
+          <div class="grid gap-2">
+            <label class="label" for="due_date">Due Date</label>
+            <input class="input" type="date" id="due_date" name="due_date" value="{{ item.due_date if item and item.due_date else '' }}" />
+          </div>
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="status">Status</label>
+          {% set status_items = [] %}
+          {% for s in statuses %}{% set _ = status_items.append({"value": s, "label": s}) %}{% endfor %}
+          {{ select(
+            id="status",
+            name="status",
+            selected=(item.status if item else statuses[0]),
+            items=status_items
+          ) }}
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="notes">Notes</label>
+          <textarea class="input min-h-24" id="notes" name="notes">{{ item.notes if item else '' }}</textarea>
+        </div>
+      </form>
+    </section>
+    <footer class="justify-end gap-2">
+      <a href="{{ url_for('list_liabilities') }}" class="btn" data-variant="ghost">Cancel</a>
+      <button type="submit" form="liability-form" class="btn">
+        {{ "Save changes" if is_edit else "Create liability" }}
+      </button>
+    </footer>
+  </div>
+</div>
+
+{% endblock %}

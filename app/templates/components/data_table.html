@@ -1,0 +1,106 @@
+{#
+  Data table component with sort links and optional row actions.
+
+  Usage:
+    {% from "components/data_table.html" import data_table %}
+    {% call(row) data_table(columns=columns, rows=customers, sort=sort, order=order, base_url="/app/customers") %}
+      <td class="font-medium">{{ row.name }}</td>
+      <td>{{ row.email }}</td>
+      <td><span class="badge" data-variant="secondary">{{ row.status }}</span></td>
+      <td class="text-end">
+        <a href="/app/customers/{{ row.id }}" class="btn" data-variant="ghost" data-size="sm">View</a>
+      </td>
+    {% endcall %}
+
+  Params:
+    columns    {list of dicts}  Each dict: { key, label, sortable (bool, default false),
+                                align (optional: "start" | "end", default "start") }.
+                                Set align="end" on any column whose <td> cells are
+                                right-aligned (e.g. currency, or an actions column)
+                                so the header lines up with the data instead of
+                                staying left-aligned while the column reads right —
+                                that mismatch is what makes a table look "wrong".
+    rows       {list}           Row data; caller renders the <td> cells.
+    sort       {string}         Current sort column key.
+    order      {string}         "asc" | "desc".
+    base_url   {string}         URL prefix for sort links (appends ?sort=KEY&order=asc/desc).
+    caption    {string}         Optional table caption.
+    scrollable {bool}           Default true. Wraps the table in a horizontally
+                                scrollable container (.table-container) for wide
+                                tables on narrow screens. Set to false if any
+                                row uses a Basecoat popover-based component
+                                (dropdown-menu, select, combobox, popover) —
+                                see the "Popover clipping" note below.
+
+  Popover clipping gotcha:
+    Basecoat hides a *closed* popover with opacity:0 + scale (for the
+    open/close transition), not display:none, so it still occupies real
+    layout space at all times, positioned via `top: 100%` relative to its
+    trigger. Per the CSS spec, any `overflow: auto`/`hidden` ancestor
+    (which .table-container is, by design, for responsive wide tables)
+    clips absolutely-positioned descendants that extend past its bounds —
+    so a dropdown-menu/select/combobox/popover placed in any column of a
+    scrollable table gets silently clipped the instant it opens, even
+    though nothing is actually scrolled. If a row action needs one of
+    those components (e.g. components/action_menu.html), pass
+    scrollable=false (only safe if the table's columns don't actually
+    need horizontal scroll on narrow screens).
+#}
+{% macro data_table(columns, rows, sort=None, order="asc", base_url="", caption=None, scrollable=true) %}
+{#
+  rounded-lg border + bg-background wrapper: matches the bordered card
+  look every component gets in the UI Gallery demo (see gallery/
+  components.html's `section()` helper), so a real table in the app looks
+  identical to its gallery preview instead of rendering as a bare,
+  borderless table.
+
+  IMPORTANT: no overflow-hidden here, even though it would look slightly
+  cleaner clipping the table's square corners to the container's rounded
+  ones. scrollable=false tables use overflow-x-visible specifically so a
+  row's action_menu popover (dropdown-menu) isn't clipped when it opens —
+  see the "Popover clipping" note above. overflow-hidden would silently
+  reintroduce that exact bug for every scrollable=false table. The square
+  corners peeking past the rounded border by ~1px is the acceptable
+  tradeoff; a clipped, invisible dropdown menu is not.
+#}
+<div class="rounded-lg border bg-background {{ 'table-container' if scrollable else 'overflow-x-visible' }}">
+  <table class="table">
+    {% if caption %}<caption>{{ caption }}</caption>{% endif %}
+    <thead>
+      <tr>
+        {% for col in columns %}
+        {% set align = col.get("align", "start") %}
+        <th class="{{ 'text-end' if align == 'end' else '' }}">
+          {% if col.get("sortable") %}
+            {% set next_order = "desc" if (sort == col.key and order == "asc") else "asc" %}
+            <a href="{{ base_url }}?sort={{ col.key }}&order={{ next_order }}" class="inline-flex items-center gap-1 hover:text-foreground text-muted-foreground font-medium {{ 'justify-end w-full' if align == 'end' else '' }}">
+              {{ col.label }}
+              {% if sort == col.key %}
+                {% if order == "asc" %}
+                  <svg class="size-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
+                {% else %}
+                  <svg class="size-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
+                {% endif %}
+              {% endif %}
+            </a>
+          {% else %}
+            {{ col.label }}
+          {% endif %}
+        </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        {{ caller(row) }}
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="{{ columns | length }}" class="text-center text-muted-foreground py-8">No results.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endmacro %}

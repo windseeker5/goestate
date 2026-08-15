@@ -1,0 +1,122 @@
+{% extends "layouts/base.html" %}
+{% from "basecoat/sidebar.html.jinja" import sidebar %}
+
+{% block body %}
+{# Sidebar #}
+{#
+  Sidebar navigation order (per UX design):
+    1. Dashboard  2. Timeline  3. Assets  4. Liabilities  5. Settings (admin)
+    — Knowledge Base: Documents, Chat
+    — Tools: UI Gallery (developer/admin)
+  Users management is no longer in the sidebar — it lives inside Settings.
+#}
+{% set nav_items = [
+  { "type": "group", "label": "Main", "items": [
+    { "type": "item", "label": "Dashboard",   "url": url_for("dashboard"),        "icon": '<svg class="lucide lucide-layout-dashboard" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>', "current": (request.endpoint == "dashboard") },
+    { "type": "item", "label": "Timeline",    "url": url_for("list_events"),      "icon": '<svg class="lucide lucide-calendar-clock" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h5"/><path d="M17.5 17.5 16 16.25V14"/><circle cx="16" cy="16" r="6"/></svg>', "current": ("event" in request.endpoint) },
+    { "type": "item", "label": "Assets",      "url": url_for("list_assets"),      "icon": '<svg class="lucide lucide-wallet" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>', "current": ("asset" in request.endpoint) },
+    { "type": "item", "label": "Liabilities", "url": url_for("list_liabilities"), "icon": '<svg class="lucide lucide-receipt" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M13 16H8"/></svg>', "current": ("liability" in request.endpoint) }
+  ] + ([{ "type": "item", "label": "Settings", "url": url_for("settings"), "icon": '<svg class="lucide lucide-settings" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>', "current": (request.endpoint == "settings" or "user" in request.endpoint) }] if g.user and g.user.role == "admin" else []) },
+  { "type": "group", "label": "Knowledge Base", "items": [
+    { "type": "item", "label": "Documents", "url": url_for("list_documents"), "icon": '<svg class="lucide lucide-file-text" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>', "current": ("document" in request.endpoint) },
+    { "type": "item", "label": "Chat",       "url": url_for("chat"),           "icon": '<svg class="lucide lucide-message-square" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>', "current": (request.endpoint == "chat") }
+  ]},
+  { "type": "separator" },
+  { "type": "group", "label": "Tools", "items": [
+    { "type": "item", "label": "UI Gallery", "url": url_for("gallery_index"), "icon": '<svg class="lucide lucide-layout-template" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="7" x="3" y="3" rx="1"/><rect width="9" height="7" x="3" y="14" rx="1"/><rect width="5" height="7" x="16" y="14" rx="1"/></svg>' }
+  ] }
+] %}
+
+{# Sidebar header: logo + app name, plus a mobile-only close button so the
+   open drawer has an explicit, visible way to dismiss it (not just tapping
+   the scrim). Hidden on desktop since the sidebar is pinned open there. #}
+{% set sidebar_header %}
+<div class="flex items-center justify-between gap-2 px-2 py-1">
+  <a href="{{ url_for('dashboard') }}" class="flex items-center gap-2 min-w-0 no-underline hover:opacity-80 transition-opacity" data-keep-mobile-sidebar-open>
+    <div class="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold text-sm">E</div>
+    <span class="font-semibold text-sm truncate text-foreground">Estate Copilot</span>
+  </a>
+  <button
+    type="button"
+    class="btn md:hidden" data-variant="ghost" data-size="icon-sm"
+    aria-label="Close sidebar"
+    onclick="document.querySelector('.sidebar')?.close()"
+  >
+    <svg class="lucide lucide-x size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+  </button>
+</div>
+{% endset %}
+
+{# Sidebar footer: avatar + name + theme toggle + sign out, all on one row #}
+{% set sidebar_footer %}
+{% if g.user %}
+{% set display_name = g.user.name if g.user.name else g.user.email.split("@")[0] %}
+{% set name_parts = display_name.split(" ") %}
+{% set initials = (name_parts[0][0] ~ (name_parts[1][0] if name_parts|length > 1 else "")) | upper %}
+<div class="flex items-center gap-2 px-2">
+  <div class="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold text-xs" title="{{ g.user.email }}">
+    {{ initials }}
+  </div>
+  <div class="min-w-0 flex-1">
+    <p class="text-xs font-medium truncate">{{ display_name }}</p>
+    <p class="text-xs text-muted-foreground">{{ "Admin" if g.user.role == "admin" else "Viewer" }}</p>
+  </div>
+  <div class="flex items-center gap-0.5 shrink-0">
+    <button
+      type="button"
+      aria-label="Toggle dark mode"
+      data-tooltip="Toggle dark mode"
+      data-side="top"
+      onclick="window.basecoat.theme.toggle()"
+      class="btn" data-variant="ghost" data-size="icon-sm"
+    >
+      <span class="hidden dark:block">
+        <svg class="lucide lucide-sun size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+      </span>
+      <span class="block dark:hidden">
+        <svg class="lucide lucide-moon size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </span>
+    </button>
+    <a href="{{ url_for('logout') }}" class="btn" data-variant="ghost" data-size="icon-sm" aria-label="Sign out" data-tooltip="Sign out" data-side="top">
+      <svg class="lucide lucide-log-out size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+    </a>
+  </div>
+</div>
+{% endif %}
+{% endset %}
+
+{{ sidebar(menu=nav_items, header=sidebar_header, footer=sidebar_footer) }}
+
+{# Main content area #}
+<main>
+  {# Top header bar: mobile-only. Desktop has the sidebar always visible and
+     each page's own page_header title, so this bar would just be an empty
+     redundant strip on desktop — hide it there entirely.
+     IMPORTANT: uses md:hidden (768px), not lg:hidden (1024px). Basecoat's
+     sidebar JS switches from mobile-overlay to pinned-desktop mode at 768px
+     (its own hardcoded default breakpoint — see basecoat.all.min.js). If
+     this bar used a different breakpoint than the sidebar, there's a dead
+     zone (768px–1024px here) where the sidebar is already pinned open but
+     this "mobile" bar is still showing too, which is what caused the
+     layout to look broken/non-fluid when resizing. Keep these in sync. #}
+  <header class="md:hidden flex h-14 items-center gap-3 border-b px-4">
+    <button
+      type="button"
+      class="btn" data-variant="ghost" data-size="icon"
+      aria-label="Open sidebar"
+      onclick="document.querySelector('.sidebar')?.toggle()"
+    >
+      <svg class="lucide lucide-menu size-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+    </button>
+  </header>
+
+  {# Page content. max-w-7xl keeps tables/forms readable on ultrawide
+     monitors instead of stretching edge-to-edge; mx-auto centers it once
+     the viewport exceeds that width. #}
+  <div class="p-4 md:p-6">
+    <div class="mx-auto w-full max-w-7xl">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</main>
+{% endblock %}

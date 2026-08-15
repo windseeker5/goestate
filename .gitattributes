@@ -1,0 +1,4 @@
+# Normalize line endings to LF in the repo; let Git handle checkout per-platform
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf

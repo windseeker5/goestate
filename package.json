@@ -1,0 +1,20 @@
+{
+  "name": "flask-shadcn-starter",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Build assets (Tailwind CSS + Basecoat UI) for the Flask/Jinja shadcn-style starter.",
+  "scripts": {
+    "sync:basecoat": "node scripts/sync_basecoat.mjs",
+    "build:css": "tailwindcss -i ./app/static/css/input.css -o ./app/static/css/output.css --minify",
+    "watch:css": "tailwindcss -i ./app/static/css/input.css -o ./app/static/css/output.css --watch",
+    "build": "npm run sync:basecoat && npm run build:css",
+    "postinstall": "npm run build"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.0",
+    "tailwindcss": "^4.1.0"
+  },
+  "dependencies": {
+    "basecoat-css": "^1.0.2"
+  }
+}

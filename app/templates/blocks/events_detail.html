@@ -1,0 +1,57 @@
+{% extends "layouts/app.html" %}
+{% from "components/page_header.html" import page_header %}
+
+{% block title %}{{ item.title }} – Estate Copilot{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('list_events') }}" class="hover:underline text-muted-foreground">Timeline</a>
+  <span class="mx-2 text-muted-foreground">/</span>
+  {{ item.title }}
+{% endblock %}
+
+{% block content %}
+
+{{ page_header(
+  title=item.title,
+  action=('<a href="' ~ url_for("edit_event", item_id=item.id) ~ '" class="btn" data-variant="outline">Edit</a>') if g.user.role == "admin" else None
+) }}
+
+<div class="grid gap-4 md:grid-cols-3">
+  <div class="card {{ 'md:col-span-2' if g.user.role == 'admin' else 'md:col-span-3' }}">
+    <header><h2>Details</h2></header>
+    <section>
+      <dl class="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
+        <div>
+          <dt class="text-xs text-muted-foreground uppercase tracking-wide">Contact</dt>
+          <dd class="mt-1 font-medium">{{ item.contact or "—" }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-muted-foreground uppercase tracking-wide">Type</dt>
+          <dd class="mt-1"><span class="badge" data-variant="outline">{{ item.type }}</span></dd>
+        </div>
+        <div>
+          <dt class="text-xs text-muted-foreground uppercase tracking-wide">Date</dt>
+          <dd class="mt-1 font-medium">{{ item.event_date or "—" }}</dd>
+        </div>
+      </dl>
+      {% if item.notes %}
+      <div class="mt-4">
+        <dt class="text-xs text-muted-foreground uppercase tracking-wide">Notes</dt>
+        <dd class="mt-1 whitespace-pre-wrap">{{ item.notes }}</dd>
+      </div>
+      {% endif %}
+    </section>
+  </div>
+  {% if g.user.role == "admin" %}
+  <div class="card">
+    <header><h2>Actions</h2></header>
+    <section class="flex flex-col gap-2">
+      <a href="{{ url_for('edit_event', item_id=item.id) }}" class="btn w-full" data-variant="outline">Edit</a>
+      <form method="post" action="{{ url_for('delete_event', item_id=item.id) }}" onsubmit="return confirm('Delete this entry?');">
+        <button type="submit" class="btn w-full" data-variant="destructive">Delete</button>
+      </form>
+    </section>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

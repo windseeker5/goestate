@@ -1,0 +1,33 @@
+{#
+  Standard page header: title + description on the left, actions on the right.
+
+  Usage:
+    {% from "components/page_header.html" import page_header %}
+    {{ page_header(title="Customers", description="Manage your customer list.", action='<button class="btn"><svg data-icon="inline-start" ...>Add customer</button>') }}
+
+  Params:
+    title       {string} Page title (h1).
+    description {string} Optional subtext under the title.
+    action      {string} Optional raw HTML for the right-aligned action(s).
+#}
+{% macro page_header(title, description=None, action=None) %}
+{#
+  Uses flex-wrap instead of a viewport-width breakpoint (sm:flex-row) on
+  purpose: the sidebar applies a fixed margin to the content column, so the
+  *visible* content width is narrower than the raw viewport width Tailwind's
+  media queries key off. A fixed breakpoint here can fire "too early" and
+  push the action button off-screen. flex-wrap reflows based on the actual
+  available space instead, so it degrades gracefully at any window size.
+#}
+<div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+  <div class="min-w-0">
+    <h1 class="text-2xl font-semibold tracking-tight">{{ title }}</h1>
+    {% if description %}<p class="text-muted-foreground text-sm mt-1">{{ description }}</p>{% endif %}
+  </div>
+  {% if action %}
+  <div class="flex items-center gap-2 flex-wrap">
+    {{ action | safe }}
+  </div>
+  {% endif %}
+</div>
+{% endmacro %}

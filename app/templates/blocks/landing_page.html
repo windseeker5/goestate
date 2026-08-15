@@ -1,0 +1,89 @@
+{% extends "layouts/public.html" %}
+
+{% block title %}Estate Copilot{% endblock %}
+
+{% block public_body %}
+
+{# ── Navbar ─────────────────────────────────────────────────── #}
+<nav class="sticky top-0 z-50 border-b bg-background/80 backdrop-blur">
+  <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+    <div class="flex items-center gap-2">
+      <div class="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold text-xs">E</div>
+      <span class="font-semibold text-sm">Estate Copilot</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="{{ url_for('login') }}" class="btn" data-size="sm">Sign in</a>
+      <button
+        type="button"
+        aria-label="Toggle dark mode"
+        onclick="window.basecoat.theme.toggle()"
+        class="btn" data-variant="ghost" data-size="icon-sm"
+      >
+        <span class="hidden dark:block"><svg class="lucide lucide-sun size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span>
+        <span class="block dark:hidden"><svg class="lucide lucide-moon size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg></span>
+      </button>
+    </div>
+  </div>
+</nav>
+
+{# ── Hero ─────────────────────────────────────────────────────── #}
+<section class="mx-auto max-w-4xl px-4 py-24 text-center">
+  <span class="badge mb-4" data-variant="secondary">Ultra-light &amp; local</span>
+  <h1 class="text-4xl font-bold tracking-tight sm:text-6xl">
+    Manage an estate,<br class="hidden sm:block" /> without the spreadsheet chaos.
+  </h1>
+  <p class="mt-6 text-lg text-muted-foreground max-w-2xl mx-auto">
+    A local-first ledger, CRM, and document assistant for executors and liquidators.
+    Track assets and liabilities, log every conversation, and chat with an AI that
+    knows every document in the estate file — all running on your own machine.
+  </p>
+  <div class="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+    <a href="{{ url_for('login') }}" class="btn" data-size="lg">Sign in</a>
+  </div>
+</section>
+
+{# ── Features ─────────────────────────────────────────────────── #}
+<section id="features" class="border-t bg-muted/30 py-20">
+  <div class="mx-auto max-w-6xl px-4">
+    <div class="text-center mb-12">
+      <h2 class="text-3xl font-bold tracking-tight">Built for one purpose</h2>
+      <p class="text-muted-foreground mt-2">Local-first. Open source. No bloat.</p>
+    </div>
+    <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      {% set features = [
+        ("Asset & Liability Ledger", "Track items to sell or distribute, incoming bills, and deadlines in one workspace.", "wallet"),
+        ("Document RAG Pipeline", "Upload PDFs and scanned bills — parsed, chunked, and embedded locally for search.", "file-text"),
+        ("Timeline / CRM", "Log every call, meeting, and communication with notaries and government agents.", "users"),
+        ("Chat with the Estate File", "Ask questions and get answers traced back to the exact source document.", "message-square"),
+        ("Bring Your Own LLM", "Plug in Ollama, OpenRouter, or any OpenAI-compatible provider — your choice.", "plug"),
+        ("Local & Private", "SQLite + sqlite-vec on your machine. Vector data never leaves unless you choose to.", "lock")
+      ] %}
+      {% for title, desc, icon_name in features %}
+      <div class="card">
+        <header>
+          <div class="mb-2 flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <svg class="size-5 lucide lucide-{{ icon_name }}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              {% if icon_name == "wallet" %}<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>
+              {% elif icon_name == "file-text" %}<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>
+              {% elif icon_name == "users" %}<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              {% elif icon_name == "message-square" %}<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              {% elif icon_name == "plug" %}<path d="M12 22v-5"/><path d="M9 8V2"/><path d="M15 8V2"/><path d="M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>
+              {% elif icon_name == "lock" %}<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              {% endif %}
+            </svg>
+          </div>
+          <h3 class="font-semibold">{{ title }}</h3>
+        </header>
+        <section><p class="text-sm text-muted-foreground">{{ desc }}</p></section>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+{# ── Footer ────────────────────────────────────────────────────── #}
+<footer class="border-t py-8 text-center text-sm text-muted-foreground">
+  <p>Estate Copilot — built with Flask, Jinja, <a href="https://basecoatui.com" class="underline underline-offset-4 hover:text-foreground">Basecoat UI</a>, and Tailwind CSS.</p>
+</footer>
+
+{% endblock %}

@@ -1,0 +1,8 @@
+{% extends "layouts/base.html" %}
+
+{% block body %}
+{# Public layout: no sidebar. Used for landing page, login, register. #}
+<div class="min-h-screen flex flex-col">
+  {% block public_body %}{% endblock %}
+</div>
+{% endblock %}

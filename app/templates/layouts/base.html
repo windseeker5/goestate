@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" class="{% block html_class %}{% endblock %}">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Estate Copilot{% endblock %}</title>
+
+  <!-- Prevent theme flash: apply saved theme before first paint (Basecoat convention) -->
+  <script>
+    (() => {
+      try {
+        const stored = localStorage.getItem("themeMode");
+        if (stored ? stored === "dark" : matchMedia("(prefers-color-scheme: dark)").matches) {
+          document.documentElement.classList.add("dark");
+        }
+      } catch (_) {}
+    })();
+  </script>
+
+  {#
+    Cache-busting via mtime query string: browsers otherwise cache
+    output.css/app.js indefinitely by URL, so an edit to either file can
+    silently keep serving the old cached version to a browser that already
+    visited the app once — no error, it just looks like the change "didn't
+    work". Appending the file's last-modified timestamp forces a fresh
+    fetch any time the file actually changes, without needing a manual
+    hard-refresh every time during development.
+  #}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}?v={{ asset_version('css/output.css') }}" />
+  {% block head %}{% endblock %}
+</head>
+<body class="bg-background text-foreground min-h-screen">
+  {% block body %}{% endblock %}
+
+  <script src="{{ url_for('static', filename='js/vendor/basecoat.all.min.js') }}?v={{ asset_version('js/vendor/basecoat.all.min.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}?v={{ asset_version('js/app.js') }}" defer></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

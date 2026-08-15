@@ -1,0 +1,65 @@
+{% extends "layouts/app.html" %}
+{% from "components/page_header.html" import page_header %}
+{% from "basecoat/select.html.jinja" import select %}
+
+{% set is_edit = item is not none %}
+{% block title %}{{ "Edit" if is_edit else "New" }} Timeline Entry – Estate Copilot{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('list_events') }}" class="hover:underline text-muted-foreground">Timeline</a>
+  <span class="mx-2 text-muted-foreground">/</span>
+  {{ "Edit" if is_edit else "New Entry" }}
+{% endblock %}
+
+{% block content %}
+
+{{ page_header(
+  title="Edit Timeline Entry" if is_edit else "New Timeline Entry",
+  description="Fill in the details below."
+) }}
+
+<div class="max-w-2xl">
+  <div class="card">
+    <header><h2>Entry Details</h2></header>
+    <section>
+      <form id="event-form" method="post" class="grid gap-5">
+        <div class="grid gap-2">
+          <label class="label" for="title">Title</label>
+          <input class="input" type="text" id="title" name="title" value="{{ item.title if item else '' }}" placeholder="e.g. Called notary re: succession documents" required />
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="grid gap-2">
+            <label class="label" for="contact">Contact</label>
+            <input class="input" type="text" id="contact" name="contact" value="{{ item.contact if item else '' }}" placeholder="e.g. Me. Tremblay" />
+          </div>
+          <div class="grid gap-2">
+            <label class="label" for="event_date">Date</label>
+            <input class="input" type="date" id="event_date" name="event_date" value="{{ item.event_date if item and item.event_date else '' }}" />
+          </div>
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="type">Type</label>
+          {% set type_items = [] %}
+          {% for t in types %}{% set _ = type_items.append({"value": t, "label": t}) %}{% endfor %}
+          {{ select(
+            id="type",
+            name="type",
+            selected=(item.type if item else types[0]),
+            items=type_items
+          ) }}
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="notes">Notes</label>
+          <textarea class="input min-h-24" id="notes" name="notes">{{ item.notes if item else '' }}</textarea>
+        </div>
+      </form>
+    </section>
+    <footer class="justify-end gap-2">
+      <a href="{{ url_for('list_events') }}" class="btn" data-variant="ghost">Cancel</a>
+      <button type="submit" form="event-form" class="btn">
+        {{ "Save changes" if is_edit else "Create entry" }}
+      </button>
+    </footer>
+  </div>
+</div>
+
+{% endblock %}

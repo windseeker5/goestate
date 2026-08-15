@@ -1,0 +1,151 @@
+{% extends "layouts/app.html" %}
+{% from "components/page_header.html" import page_header %}
+{% from "components/alert.html" import alert %}
+
+{% block title %}Chat – Estate Copilot{% endblock %}
+{% block breadcrumb %}Chat{% endblock %}
+
+{% block content %}
+
+{{ page_header(
+  title="Chat with the Estate File",
+  description="Ask questions about any uploaded document or logged timeline event. Answers link back to their sources."
+) }}
+
+{% if error %}
+{{ alert(title="Couldn't get an answer", message=error, variant="destructive") }}
+{% endif %}
+
+{# Chat input: no surrounding card, larger ChatGPT/Gemini-style input-group
+   with the send action as an icon button living inside the field instead of
+   a separate "Ask" button. #}
+<form id="chat-form" method="post" action="{{ url_for('chat') }}" class="mb-8">
+  <div class="input-group h-auto py-1 pl-5 pr-1.5 rounded-2xl shadow-sm">
+    <textarea
+      id="chat-question"
+      class="text-base py-3"
+      name="question"
+      placeholder="Ask about a document or a logged call, e.g. Audrey Peltier"
+      required
+      autofocus
+      rows="1"
+      onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault();this.form.requestSubmit();}"
+    >{{ question }}</textarea>
+    <button
+      id="chat-send-btn"
+      type="submit"
+      class="btn rounded-full self-end mb-1"
+      data-variant="primary"
+      data-size="icon"
+      aria-label="Send question"
+    >
+      <svg id="chat-send-icon" class="lucide lucide-arrow-up size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg>
+      <svg id="chat-send-spinner" class="lucide lucide-loader-circle size-4 animate-spin hidden" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+    </button>
+  </div>
+</form>
+
+{# Loading feedback: shown the instant the form is submitted, since the LLM
+   round-trip can take several seconds with zero other feedback otherwise. #}
+<div id="chat-loading" class="hidden mb-6 flex items-center gap-3 rounded-lg border p-4 text-sm text-muted-foreground">
+  <svg class="lucide lucide-loader-circle size-4 animate-spin shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+  <span>Searching documents and timeline, then asking the model&hellip;</span>
+</div>
+
+{% if answer %}
+<div id="chat-answer-card" class="card mb-4">
+  <header><h2>Answer</h2></header>
+  <section>
+    <p class="whitespace-pre-wrap">{{ answer }}</p>
+  </section>
+</div>
+
+{% if sources %}
+<div id="chat-sources-card" class="card">
+  <header><h2>Retrieved Context</h2><p>Excerpts retrieved from the estate file for the assistant to review — not every excerpt below was necessarily used in the answer above.</p></header>
+  <section class="flex flex-col gap-3">
+    {% for s in sources %}
+    <details class="group rounded-lg border p-3">
+      <summary class="flex items-center justify-between gap-3 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
+        <span class="flex items-center gap-2 min-w-0">
+          {% if s.document_id %}
+          <a href="{{ url_for('view_document', document_id=s.document_id) }}" target="_blank" rel="noopener" class="text-xs font-medium uppercase tracking-wide truncate hover:underline" onclick="event.stopPropagation()">{{ s.filename }}</a>
+          {% elif s.linked_entity_type == "event" %}
+          <a href="{{ url_for('detail_event', item_id=s.linked_entity_id) }}" target="_blank" rel="noopener" class="text-xs font-medium uppercase tracking-wide truncate hover:underline" onclick="event.stopPropagation()">{{ s.filename }}</a>
+          {% else %}
+          <span class="text-xs font-medium text-muted-foreground uppercase tracking-wide truncate">{{ s.filename }}</span>
+          {% endif %}
+        </span>
+        <span class="flex items-center gap-2 shrink-0">
+          {% if s.distance is not none %}
+          <span class="badge" data-variant="outline">distance {{ "%.3f"|format(s.distance) }}</span>
+          {% else %}
+          <span class="badge" data-variant="secondary">timeline</span>
+          {% endif %}
+          <svg class="lucide lucide-chevron-down size-4 text-muted-foreground transition-transform group-open:rotate-180" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </span>
+      </summary>
+      <p class="text-sm whitespace-pre-wrap mt-2 line-clamp-2 group-open:line-clamp-none">{{ s.chunk_text }}</p>
+    </details>
+    {% endfor %}
+  </section>
+</div>
+{% endif %}
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const form = document.getElementById("chat-form");
+    const textarea = document.getElementById("chat-question");
+    const sendBtn = document.getElementById("chat-send-btn");
+    const sendIcon = document.getElementById("chat-send-icon");
+    const sendSpinner = document.getElementById("chat-send-spinner");
+    const loading = document.getElementById("chat-loading");
+    const answerCard = document.getElementById("chat-answer-card");
+    const sourcesCard = document.getElementById("chat-sources-card");
+
+    if (!form || !textarea) return;
+
+    // Auto-grow the textarea as the user types, ChatGPT/Gemini-style, up to
+    // a reasonable cap so it doesn't take over the page.
+    const autoGrow = () => {
+      textarea.style.height = "auto";
+      textarea.style.height = Math.min(textarea.scrollHeight, 200) + "px";
+    };
+    textarea.addEventListener("input", autoGrow);
+    autoGrow();
+
+    // Immediate visual feedback on submit: the LLM round-trip can take
+    // several seconds with no other indication anything is happening.
+    //
+    // IMPORTANT: do NOT use `.disabled = true` here. Disabled form fields
+    // are excluded from the submitted form data per the HTML spec — setting
+    // it synchronously inside the "submit" handler strips `question` from
+    // the POST body (or in some browsers cancels the submission outright)
+    // before the browser has a chance to serialize it, so the request goes
+    // out empty/never fires and the page just sits there with a spinning
+    // icon and no result. Use `readOnly` (textarea) and `pointer-events`
+    // (button) instead — both block further interaction without touching
+    // what gets submitted.
+    form.addEventListener("submit", () => {
+      if (!textarea.value.trim()) return;
+      textarea.readOnly = true;
+      sendBtn.style.pointerEvents = "none";
+      sendBtn.setAttribute("aria-disabled", "true");
+      sendIcon.classList.add("hidden");
+      sendSpinner.classList.remove("hidden");
+      if (loading) loading.classList.remove("hidden");
+
+      // Hide the previous question's Answer/Sources immediately — leaving
+      // them visible while a new question is in flight makes it look like
+      // the app ignored the new question or is showing an already-updated
+      // answer, when it's actually just stale content from last time.
+      if (answerCard) answerCard.classList.add("hidden");
+      if (sourcesCard) sourcesCard.classList.add("hidden");
+    });
+  })();
+</script>
+{% endblock %}

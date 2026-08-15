@@ -1,0 +1,7 @@
+flask>=3.0.0
+python-dotenv>=1.0.0
+sqlite-vec>=0.1.6
+
+# Document RAG pipeline (Phase 3+)
+docling>=2.0.0
+fastembed>=0.8.0

@@ -1,0 +1,72 @@
+{% extends "layouts/app.html" %}
+{% from "components/page_header.html" import page_header %}
+{% from "components/alert.html" import alert %}
+{% from "basecoat/select.html.jinja" import select %}
+
+{% set is_edit = item is not none %}
+{% block title %}{{ "Edit" if is_edit else "New" }} User – Estate Copilot{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('list_users') }}" class="hover:underline text-muted-foreground">Users</a>
+  <span class="mx-2 text-muted-foreground">/</span>
+  {{ "Edit" if is_edit else "New User" }}
+{% endblock %}
+
+{% block content %}
+
+{{ page_header(
+  title="Edit User" if is_edit else "New User",
+  description="Admins can edit and delete everything. Viewers can browse and use chat, but cannot make changes."
+) }}
+
+<div class="max-w-2xl">
+  {% if error %}
+  {{ alert(title="Error", message=error, variant="destructive") }}
+  {% endif %}
+
+  <div class="card">
+    <header><h2>User Details</h2></header>
+    <section>
+      <form id="user-form" method="post" class="grid gap-5">
+        <div class="grid gap-2">
+          <label class="label" for="name">Name</label>
+          <input class="input" type="text" id="name" name="name" value="{{ item.name if item and item.name else '' }}" placeholder="e.g. Ken Dresdell" />
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="email">Email</label>
+          {% if is_edit %}
+          <input class="input" type="email" id="email" value="{{ item.email }}" disabled />
+          <p class="text-xs text-muted-foreground">Email cannot be changed after creation.</p>
+          {% else %}
+          <input class="input" type="email" id="email" name="email" placeholder="name@example.com" required autofocus />
+          {% endif %}
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="password">{{ "New Password" if is_edit else "Password" }}</label>
+          <input class="input" type="password" id="password" name="password"
+                 autocomplete="new-password" {{ "" if is_edit else "required" }}
+                 placeholder="{{ 'Leave blank to keep current password' if is_edit else '' }}" />
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="role">Role</label>
+          {{ select(
+            id="role",
+            name="role",
+            selected=(item.role if item else "viewer"),
+            items=[
+              {"value": "admin",  "label": "Admin — full access"},
+              {"value": "viewer", "label": "Viewer — read-only + chat"}
+            ]
+          ) }}
+        </div>
+      </form>
+    </section>
+    <footer class="justify-end gap-2">
+      <a href="{{ url_for('list_users') }}" class="btn" data-variant="ghost">Cancel</a>
+      <button type="submit" form="user-form" class="btn">
+        {{ "Save changes" if is_edit else "Create user" }}
+      </button>
+    </footer>
+  </div>
+</div>
+
+{% endblock %}

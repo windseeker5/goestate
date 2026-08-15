@@ -1,0 +1,70 @@
+{% extends "layouts/app.html" %}
+{% from "components/page_header.html"   import page_header %}
+{% from "components/search_filter.html" import search_filter %}
+{% from "components/data_table.html"    import data_table %}
+{% from "components/pagination.html"    import pagination %}
+{% from "components/action_menu.html"   import action_menu %}
+
+{% block title %}Timeline – Estate Copilot{% endblock %}
+{% block breadcrumb %}Timeline{% endblock %}
+
+{% block content %}
+
+{{ page_header(
+  title="Timeline",
+  description="Calls, meetings, and communications with notaries and government agents.",
+  action=('<a href="' ~ url_for("new_event") ~ '" class="btn"><svg data-icon="inline-start" class="lucide lucide-plus" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Log entry</a>') if g.user.role == "admin" else None
+) }}
+
+{{ search_filter(
+  action=url_for("list_events"),
+  q=q,
+  filters=[
+    {
+      "name": "type",
+      "options": [("", "All types"), ("Note", "Note"), ("Call", "Call"), ("Meeting", "Meeting"), ("Email", "Email"), ("Task", "Task")],
+      "value": type
+    }
+  ]
+) }}
+
+<p class="text-sm text-muted-foreground mb-3">{{ total }} record{{ "s" if total != 1 else "" }}</p>
+
+{% set columns = [
+  {"key": "event_date", "label": "Date",    "sortable": true},
+  {"key": "type",       "label": "Type",    "sortable": false},
+  {"key": "contact",    "label": "Contact", "sortable": true},
+  {"key": "title",      "label": "Topic",   "sortable": true},
+  {"key": "_actions",   "label": "",        "sortable": false, "align": "end"}
+] %}
+
+{% call(row) data_table(columns=columns, rows=events, sort=sort, order=order, base_url=url_for("list_events"), scrollable=false) %}
+  <td class="text-muted-foreground">{{ row.event_date or "—" }}</td>
+  <td><span class="badge" data-variant="outline">{{ row.type }}</span></td>
+  <td>{{ row.contact or "—" }}</td>
+  <td class="font-medium">{{ row.title }}</td>
+  <td class="text-end">
+    {% set row_actions = [
+      {"label": "View", "url": url_for('detail_event', item_id=row.id)}
+    ] %}
+    {% if g.user.role == "admin" %}
+      {% set _ = row_actions.append({"label": "Edit", "url": url_for('edit_event', item_id=row.id)}) %}
+      {% set _ = row_actions.append({"type": "separator"}) %}
+      {% set _ = row_actions.append({
+        "label": "Delete",
+        "attrs": {"class": "text-destructive", "onclick": "if(confirm('Delete this entry?')) document.getElementById('delete-form-" ~ row.id ~ "').submit()"}
+      }) %}
+    {% endif %}
+    <form id="delete-form-{{ row.id }}" method="post" action="{{ url_for('delete_event', item_id=row.id) }}" class="hidden"></form>
+    {{ action_menu(id="event-actions-" ~ row.id, items=row_actions) }}
+  </td>
+{% endcall %}
+
+{{ pagination(
+  page=page,
+  total_pages=total_pages,
+  base_url=url_for("list_events"),
+  extra_params={"q": q, "type": type, "sort": sort, "order": order}
+) }}
+
+{% endblock %}

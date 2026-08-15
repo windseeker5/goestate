@@ -1,0 +1,29 @@
+{#
+  Metric Pill component.
+
+  Compact inline pill for showing a labeled metric with an optional trend
+  indicator. Useful for summary rows, table headers, or dense dashboards
+  where a full stat_card would take up too much space.
+
+  Usage:
+    {% from "components/metric_pill.html" import metric_pill %}
+    {{ metric_pill(label="Net Worth", value="$412,300") }}
+    {{ metric_pill(label="Debts", value="$18,900", trend="down") }}
+
+  Params:
+    label   {string} Short label shown before the value.
+    value   {string} The metric value.
+    trend   {string} "up" | "down" | "neutral". Colors the value. Default "neutral".
+    class_  {string} Extra classes on the root element. Optional.
+#}
+{% macro metric_pill(label, value, trend="neutral", class_="") %}
+{% set trend_class = {
+  "up": "text-green-600 dark:text-green-400",
+  "down": "text-destructive",
+  "neutral": "text-foreground"
+}[trend] %}
+<span class="inline-flex items-center gap-1.5 rounded-full border bg-muted/40 px-3 py-1 text-sm {{ class_ }}">
+  <span class="text-muted-foreground">{{ label }}</span>
+  <span class="font-semibold {{ trend_class }}">{{ value }}</span>
+</span>
+{% endmacro %}

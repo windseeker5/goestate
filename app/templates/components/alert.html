@@ -1,0 +1,26 @@
+{#
+  Alert component.
+
+  Usage:
+    {% from "components/alert.html" import alert %}
+    {{ alert(message="Customer saved successfully.", variant="success") }}
+
+  Params:
+    message {string} Main alert message.
+    title   {string} Optional bold title above message.
+    variant {string} "default" | "destructive". Default: "default".
+    icon    {string} Optional SVG HTML override.
+#}
+{% macro alert(message, title=None, variant="default", icon=None) %}
+<div class="alert" {% if variant != "default" %}data-variant="{{ variant }}"{% endif %} role="alert">
+  {% if icon %}
+    {{ icon | safe }}
+  {% elif variant == "destructive" %}
+    <svg class="lucide lucide-circle-alert" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+  {% else %}
+    <svg class="lucide lucide-info" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+  {% endif %}
+  {% if title %}<p class="alert-title">{{ title }}</p>{% endif %}
+  <p class="alert-description">{{ message }}</p>
+</div>
+{% endmacro %}

@@ -1,0 +1,78 @@
+{% extends "layouts/app.html" %}
+{% from "components/page_header.html"   import page_header %}
+{% from "components/search_filter.html" import search_filter %}
+{% from "components/data_table.html"    import data_table %}
+{% from "components/pagination.html"    import pagination %}
+{% from "components/action_menu.html"   import action_menu %}
+
+{% block title %}Assets – Estate Copilot{% endblock %}
+{% block breadcrumb %}Assets{% endblock %}
+
+{% block content %}
+
+{{ page_header(
+  title="Assets",
+  description="Items to sell or distribute — houses, vehicles, accounts.",
+  action=('<a href="' ~ url_for("new_asset") ~ '" class="btn"><svg data-icon="inline-start" class="lucide lucide-plus" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add asset</a>') if g.user.role == "admin" else None
+) }}
+
+{{ search_filter(
+  action=url_for("list_assets"),
+  q=q,
+  filters=[
+    {
+      "name": "status",
+      "options": [("", "All statuses"), ("Active", "Active"), ("Pending", "Pending"), ("Sold", "Sold"), ("Distributed", "Distributed")],
+      "value": status
+    }
+  ]
+) }}
+
+<p class="text-sm text-muted-foreground mb-3">{{ total }} record{{ "s" if total != 1 else "" }}</p>
+
+{% set columns = [
+  {"key": "created_at",      "label": "Date",       "sortable": true},
+  {"key": "name",            "label": "Name",       "sortable": true},
+  {"key": "category",        "label": "Category",   "sortable": true},
+  {"key": "estimated_value", "label": "Est. Value", "sortable": true, "align": "end"},
+  {"key": "sale_price",      "label": "Sale Price", "sortable": true, "align": "end"},
+  {"key": "status",          "label": "Status",     "sortable": false},
+  {"key": "_actions",        "label": "",           "sortable": false, "align": "end"}
+] %}
+
+{% call(row) data_table(columns=columns, rows=assets, sort=sort, order=order, base_url=url_for("list_assets"), scrollable=false) %}
+  <td class="text-muted-foreground">{{ row.created_at.split("T")[0] if row.created_at else "—" }}</td>
+  <td class="font-medium">{{ row.name }}</td>
+  <td>{{ row.category or "—" }}</td>
+  <td class="text-end">{{ "$%.2f"|format(row.estimated_value) if row.estimated_value else "—" }}</td>
+  <td class="text-end">{{ "$%.2f"|format(row.sale_price) if row.sale_price else "—" }}</td>
+  <td>
+    <span class="badge" data-variant="{{ 'secondary' if row.status in ('Sold', 'Distributed') else 'outline' }}">
+      {{ row.status }}
+    </span>
+  </td>
+  <td class="text-end">
+    {% set row_actions = [
+      {"label": "View", "url": url_for('detail_asset', item_id=row.id)}
+    ] %}
+    {% if g.user.role == "admin" %}
+      {% set _ = row_actions.append({"label": "Edit", "url": url_for('edit_asset', item_id=row.id)}) %}
+      {% set _ = row_actions.append({"type": "separator"}) %}
+      {% set _ = row_actions.append({
+        "label": "Delete",
+        "attrs": {"class": "text-destructive", "onclick": "if(confirm('Delete this asset?')) document.getElementById('delete-form-" ~ row.id ~ "').submit()"}
+      }) %}
+    {% endif %}
+    <form id="delete-form-{{ row.id }}" method="post" action="{{ url_for('delete_asset', item_id=row.id) }}" class="hidden"></form>
+    {{ action_menu(id="asset-actions-" ~ row.id, items=row_actions) }}
+  </td>
+{% endcall %}
+
+{{ pagination(
+  page=page,
+  total_pages=total_pages,
+  base_url=url_for("list_assets"),
+  extra_params={"q": q, "status": status, "sort": sort, "order": order}
+) }}
+
+{% endblock %}

@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+
+# Flask instance / secrets
+instance/
+*.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Playwright MCP debug artifacts
+.playwright-mcp/
+
+# Local agent/tooling workspace
+.opencode/
+
+# Phase 3 POC generated artifacts (regenerate with make_sample_pdf.py / ingest_poc.py)
+scripts/poc/sample_docs/
+scripts/poc/poc_vectors.db
+
+# Local model caches (HuggingFace / sentence-transformers downloads)
+.cache/
+
+# Tailwind source map - output.css is intentionally committed so teammates skip Node
+# app/static/css/output.css   <- intentionally NOT gitignored

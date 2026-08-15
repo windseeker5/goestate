@@ -1,0 +1,174 @@
+{% extends "layouts/app.html" %}
+{% from "components/page_header.html" import page_header %}
+{% from "components/empty_state.html" import empty_state %}
+{% from "components/action_menu.html" import action_menu %}
+
+{% block title %}Documents – Estate Copilot{% endblock %}
+{% block breadcrumb %}Documents{% endblock %}
+
+{% block content %}
+
+{{ page_header(
+  title="Documents",
+  description="Upload PDFs to make them searchable and chattable in the estate assistant."
+) }}
+
+{% if g.user.role == "admin" %}
+{#
+  Dropzone: a single clickable/drag-droppable card replaces the old plain
+  <input type="file">. Works identically on desktop (click to browse, or
+  drag files onto it) and mobile (tap to open the native file picker) —
+  no separate mobile-only variant needed, the same target is just big and
+  tap-friendly at every width.
+
+  The hidden <input multiple> lets a user pick or drop several PDFs in one
+  go; app.js wires up drag-over styling and auto-submits the form the
+  moment files are chosen so there's no separate "confirm" step.
+
+  On submit, #upload-loading replaces the dropzone. Ingestion runs
+  synchronously per the current architecture (see routes/documents.py), so
+  for several documents this can take a while — the loading state exists
+  specifically so that wait is never mistaken for a frozen page.
+#}
+<div class="card mb-6">
+  <header><h2>Add documents</h2><p>PDF only. Parsed and indexed automatically — you can select multiple files at once.</p></header>
+  <section>
+    <form
+      id="upload-form"
+      method="post"
+      action="{{ url_for('upload_document') }}"
+      enctype="multipart/form-data"
+    >
+      <label
+        id="upload-dropzone"
+        for="upload-file-input"
+        class="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-input p-8 text-center cursor-pointer transition-colors hover:bg-muted/40 hover:border-ring"
+      >
+        <svg class="lucide lucide-upload-cloud size-8 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
+        <p class="text-sm font-medium">Click to add documents, or drag and drop PDFs here</p>
+        <p class="text-xs text-muted-foreground">You can select multiple files at once</p>
+        <input
+          id="upload-file-input"
+          class="sr-only"
+          type="file"
+          name="file"
+          accept="application/pdf"
+          multiple
+          required
+        />
+      </label>
+    </form>
+
+    {# Loading state: swapped in by app.js right before the form submits,
+       replacing the dropzone so the page never looks frozen mid-upload. #}
+    <div id="upload-loading" class="hidden flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-input p-8 text-center">
+      <svg class="lucide lucide-loader-circle size-8 text-muted-foreground animate-spin" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+      <p id="upload-loading-text" class="text-sm font-medium">Processing your documents…</p>
+      <p class="text-xs text-muted-foreground">This can take a few minutes for several files — please don't close this tab.</p>
+    </div>
+
+    <p id="upload-hint" class="text-xs text-muted-foreground mt-2">Ingestion runs immediately after upload — parsing and embedding a typical PDF takes a few seconds each.</p>
+  </section>
+</div>
+{% endif %}
+
+{% if documents %}
+{#
+  rounded-lg border + bg-background: matches the bordered look every
+  component gets in the UI Gallery demo (see components/data_table.html
+  for the full rationale).
+
+  No .table-container/overflow-hidden wrapper here on purpose (unlike some
+  other list pages). Basecoat's dropdown-menu/popover components hide
+  their closed state with opacity:0 + scale (for the open/close
+  transition), not display:none — the closed popover still occupies real
+  layout space, positioned via `top: 100%` relative to its trigger.
+  Wrapping that in a clipped/scrollable container clips the popover the
+  instant it opens, because CSS scroll-containers clip
+  absolutely-positioned descendants even when nothing is actually
+  scrolled. This table's columns are narrow enough to never need
+  horizontal scroll anyway, so we skip the wrapper entirely rather than
+  fight the popover's positioning.
+#}
+<div class="rounded-lg border bg-background overflow-x-visible">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Uploaded</th>
+        <th>Filename</th>
+        <th>Status</th>
+        {% if g.user.role == "admin" %}<th class="text-end"></th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for doc in documents %}
+      <tr>
+        <td class="text-muted-foreground">{{ doc.created_at.split("T")[0] if doc.created_at else "—" }}</td>
+        <td class="font-medium">
+          {% if doc.filepath %}
+          <a href="{{ url_for('view_document', document_id=doc.id) }}" target="_blank" rel="noopener" class="hover:underline text-foreground">{{ doc.filename }}</a>
+          {% else %}
+          {{ doc.filename }}
+          {% endif %}
+        </td>
+        <td>
+          {% if doc.ingestion_status == 'embedded' %}
+          <span class="badge" data-variant="secondary">Embedded</span>
+          {% elif doc.ingestion_status == 'parsed' %}
+          <span class="badge" data-variant="outline">Parsed</span>
+          {% elif doc.ingestion_status == 'error' %}
+          <span class="badge" data-variant="destructive" title="{{ doc.ingestion_error }}">Error</span>
+          {% else %}
+          <span class="badge" data-variant="outline">Pending</span>
+          {% endif %}
+        </td>
+        {% if g.user.role == "admin" %}
+        <td class="text-end">
+          {# Hidden forms carry out the actual POST actions; the dropdown
+             menu below just triggers them. Keeping them as real <form>
+             elements (not fetch/JS) means this still works if JS is slow
+             to load, and matches the rest of the app's server-rendered,
+             no-SPA approach. #}
+          <form id="reindex-form-{{ doc.id }}" method="post" action="{{ url_for('reindex_document', document_id=doc.id) }}" class="hidden"></form>
+          <form id="delete-form-{{ doc.id }}" method="post" action="{{ url_for('delete_document', document_id=doc.id) }}" class="hidden"></form>
+          {% set doc_actions = [] %}
+          {% if doc.filepath %}
+            {% set _ = doc_actions.append({
+              "label": "View",
+              "url": url_for('view_document', document_id=doc.id),
+              "icon": '<svg class="lucide lucide-eye" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>',
+              "attrs": {"target": "_blank", "rel": "noopener"}
+            }) %}
+          {% endif %}
+          {% set _ = doc_actions.append({
+            "label": "Re-index",
+            "icon": '<svg class="lucide lucide-refresh-cw" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>',
+            "attrs": {"onclick": "document.getElementById('reindex-form-" ~ doc.id ~ "').submit()"}
+          }) %}
+          {% set _ = doc_actions.append({"type": "separator"}) %}
+          {% set _ = doc_actions.append({
+            "label": "Delete",
+            "icon": '<svg class="lucide lucide-trash-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+            "attrs": {"class": "text-destructive", "onclick": "if(confirm('Delete this document and its indexed chunks?')) document.getElementById('delete-form-" ~ doc.id ~ "').submit()"}
+          }) %}
+          {{ action_menu(id="doc-actions-" ~ doc.id, items=doc_actions) }}
+        </td>
+        {% endif %}
+      </tr>
+      {% if doc.ingestion_status == 'error' and doc.ingestion_error %}
+      <tr>
+        <td colspan="{{ 4 if g.user.role == 'admin' else 3 }}" class="text-xs text-destructive pb-3">{{ doc.ingestion_error }}</td>
+      </tr>
+      {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+{{ empty_state(
+  title="No documents yet",
+  description="Add a PDF above to start building the estate's knowledge base."
+) }}
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,46 @@
+{#
+  Search + filter bar for list pages (server-side).
+
+  Usage:
+    {% from "components/search_filter.html" import search_filter %}
+    {{ search_filter(action="/app/customers", q=q, filters=[
+        {"name": "status", "label": "Status", "options": [("", "All"), ("active", "Active"), ("inactive", "Inactive")], "value": status}
+    ]) }}
+#}
+{% from "basecoat/select.html.jinja" import select %}
+{% macro search_filter(action, q="", filters=[]) %}
+{#
+  flex-wrap (not a sm:flex-row breakpoint) so this reflows based on actual
+  available width next to the sidebar, not raw viewport width — see the
+  comment in components/page_header.html for why that distinction matters.
+
+  No submit button on purpose: pressing Enter in the search input submits
+  the form natively (standard <form> behavior with a single text input),
+  and the filter <select> already auto-submits on change via its onchange
+  handler below. A dedicated "Search" button is redundant UI — this is a
+  site-wide rule, not specific to this one page.
+#}
+<form method="get" action="{{ action }}" class="flex flex-wrap items-center gap-3 mb-4">
+  <div class="relative flex-1 min-w-[200px]">
+    <svg class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none lucide lucide-search" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+    <input
+      class="input pl-9 w-full"
+      type="search"
+      name="q"
+      value="{{ q }}"
+      placeholder="Search…"
+      autocomplete="off"
+    />
+  </div>
+  {% for f in filters %}
+  {% set filter_items = [] %}
+  {% for val, lbl in f.options %}{% set _ = filter_items.append({"value": val, "label": lbl}) %}{% endfor %}
+  {{ select(
+    name=f.name,
+    selected=f.value,
+    items=filter_items,
+    main_attrs={"class": "w-auto", "onchange": "this.closest('form').submit()"}
+  ) }}
+  {% endfor %}
+</form>
+{% endmacro %}

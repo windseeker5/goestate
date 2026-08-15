@@ -1,0 +1,235 @@
+{% extends "layouts/app.html" %}
+{% from "components/page_header.html" import page_header %}
+{% from "components/stat_card.html"   import stat_card %}
+{% from "components/alert.html"       import alert %}
+{% from "components/empty_state.html" import empty_state %}
+{% from "components/timeline.html"    import timeline %}
+{% from "components/metric_pill.html" import metric_pill %}
+
+{% block title %}Components – UI Gallery{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('gallery_index') }}" class="hover:underline text-muted-foreground">UI Gallery</a>
+  <span class="mx-2 text-muted-foreground">/</span>Components
+{% endblock %}
+
+{% block content %}
+{{ page_header(title="Components", description="Primitive building blocks. Use them directly in your Jinja templates.") }}
+
+{# ── Helper macro for a preview + usage section ── #}
+{% macro section(title, desc, usage) %}
+<div class="card mb-6">
+  <header>
+    <h2>{{ title }}</h2>
+    {% if desc %}<p>{{ desc }}</p>{% endif %}
+  </header>
+  <section>
+    {# Live preview #}
+    <div class="rounded-lg border bg-muted/30 p-6 mb-4 flex flex-wrap gap-3 items-start">
+      {{ caller() }}
+    </div>
+    {# Usage snippet #}
+    {% if usage %}
+    <details>
+      <summary class="text-sm text-muted-foreground cursor-pointer select-none hover:text-foreground mb-2">Show Jinja usage</summary>
+      <pre class="rounded-md bg-muted p-4 text-xs overflow-x-auto"><code>{{ usage | e }}</code></pre>
+    </details>
+    {% endif %}
+  </section>
+</div>
+{% endmacro %}
+
+{# ── Button ── #}
+{% call section("Button", "Core interactive element. Use data-variant and data-size.", '
+<button type="button" class="btn">Primary</button>
+<button type="button" class="btn" data-variant="secondary">Secondary</button>
+<button type="button" class="btn" data-variant="outline">Outline</button>
+<button type="button" class="btn" data-variant="ghost">Ghost</button>
+<button type="button" class="btn" data-variant="destructive">Destructive</button>
+<button type="button" class="btn" data-size="sm">Small</button>
+') %}
+  <button type="button" class="btn">Primary</button>
+  <button type="button" class="btn" data-variant="secondary">Secondary</button>
+  <button type="button" class="btn" data-variant="outline">Outline</button>
+  <button type="button" class="btn" data-variant="ghost">Ghost</button>
+  <button type="button" class="btn" data-variant="destructive">Destructive</button>
+  <button type="button" class="btn" data-size="sm">Small</button>
+{% endcall %}
+
+{# ── Badge ── #}
+{% call section("Badge", "Status and label indicator. Variants: default, secondary, destructive, outline.", '
+<span class="badge">Default</span>
+<span class="badge" data-variant="secondary">Secondary</span>
+<span class="badge" data-variant="destructive">Destructive</span>
+<span class="badge" data-variant="outline">Outline</span>
+') %}
+  <span class="badge">Default</span>
+  <span class="badge" data-variant="secondary">Secondary</span>
+  <span class="badge" data-variant="destructive">Destructive</span>
+  <span class="badge" data-variant="outline">Outline</span>
+{% endcall %}
+
+{# ── Input ── #}
+{% call section("Input / Field", "Text inputs and labels. Use class=\"input\" on any <input> or <textarea>.", '
+<div class="grid gap-2">
+  <label class="label" for="eg-name">Company name</label>
+  <input class="input" type="text" id="eg-name" placeholder="Acme Corp" />
+</div>
+') %}
+  <div class="grid gap-2 w-full max-w-sm">
+    <label class="label" for="eg-name">Company name</label>
+    <input class="input" type="text" id="eg-name" placeholder="Acme Corp" />
+  </div>
+  <div class="grid gap-2 w-full max-w-sm">
+    <label class="label" for="eg-email">Email</label>
+    <input class="input" type="email" id="eg-email" placeholder="you@company.com" />
+  </div>
+{% endcall %}
+
+{# ── Card ── #}
+{% call section("Card", "Container with optional header, body, and footer sections.", '
+{% from "components/card.html" import card %}
+{% call card(title="Revenue", description="Last 30 days") %}
+  <p class="text-2xl font-bold">$48,290</p>
+{% endcall %}
+') %}
+  <div class="card w-full max-w-xs">
+    <header><h2>Revenue</h2><p>Last 30 days</p></header>
+    <section><p class="text-2xl font-bold">$48,290</p></section>
+  </div>
+{% endcall %}
+
+{# ── Stat Card ── #}
+{% call section("Stat Card", "KPI metric card for dashboards.", '
+{% from "components/stat_card.html" import stat_card %}
+{{ stat_card(label="Revenue", value="$48,290", delta="+12.5%", trend="up") }}
+{{ stat_card(label="Churn",   value="3.4%",    delta="-0.5%",  trend="up") }}
+') %}
+  {{ stat_card(label="Total Revenue",    value="$316,550", delta="+18.2% from last month", trend="up") }}
+  {{ stat_card(label="Active Customers", value="8",        delta="+2 this month",           trend="up") }}
+  {{ stat_card(label="Churn Rate",       value="3.4%",     delta="-0.5% vs last month",     trend="up") }}
+{% endcall %}
+
+{# ── Alert ── #}
+{% call section("Alert", "Informational and error messages.", '
+{% from "components/alert.html" import alert %}
+{{ alert(message="Your settings have been saved.") }}
+{{ alert(title="Error", message="Something went wrong.", variant="destructive") }}
+') %}
+  {{ alert(message="Your settings have been saved successfully.") }}
+  {{ alert(title="Error", message="Something went wrong. Please try again.", variant="destructive") }}
+{% endcall %}
+
+{# ── Table ── #}
+{% call section("Table", "Semantic HTML table with Basecoat styling.", '
+<div class="table-container">
+  <table class="table">
+    <thead><tr><th>Name</th><th>Status</th><th class="text-end">Revenue</th></tr></thead>
+    <tbody>
+      {% for c in customers %}
+      <tr>
+        <td class="font-medium">{{ c.name }}</td>
+        <td><span class="badge" data-variant="secondary">{{ c.status }}</span></td>
+        <td class="text-end">{{ c.revenue }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+') %}
+  <div class="table-container w-full">
+    <table class="table">
+      <thead><tr><th>Company</th><th>Plan</th><th>Status</th><th class="text-end">Revenue</th></tr></thead>
+      <tbody>
+        {% for row in [
+          {"name":"Acme Corp",        "plan":"Pro",        "status":"Active",   "revenue":"$12,400"},
+          {"name":"Stark Industries", "plan":"Enterprise", "status":"Active",   "revenue":"$92,000"},
+          {"name":"Initech",          "plan":"Pro",        "status":"Inactive", "revenue":"$8,750"}
+        ] %}
+        <tr>
+          <td class="font-medium">{{ row.name }}</td>
+          <td>{{ row.plan }}</td>
+          <td><span class="badge" data-variant="{{ 'secondary' if row.status == 'Inactive' else 'outline' }}">{{ row.status }}</span></td>
+          <td class="text-end">{{ row.revenue }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endcall %}
+
+{# ── Empty State ── #}
+{% call section("Empty State", "Shown when a list or section has no data.", '
+{% from "components/empty_state.html" import empty_state %}
+{{ empty_state(
+  title="No customers yet",
+  description="Add your first customer to get started.",
+  action=\'<a href="/app/customers/new" class="btn">Add customer</a>\'
+) }}
+') %}
+  {{ empty_state(
+    title="No results found",
+    description="Try adjusting your search or filter to find what you're looking for.",
+    action='<button type="button" class="btn" data-variant="outline">Clear filters</button>'
+  ) }}
+{% endcall %}
+
+{# ── Timeline ── #}
+{% call section("Timeline", "Vertical chronological list. Useful for succession history or audit logs.", '
+{% from "components/timeline.html" import timeline %}
+{{ timeline(items=[
+  {"date": "Aug 12, 2026", "title": "Notary meeting", "description": "Signed the will validation.", "badge": "Meeting"},
+  {"date": "Aug 5, 2026",  "title": "Bank account closed", "description": "RBC chequing account #1234.", "badge": "Task", "badge_variant": "secondary"},
+  {"date": "Jul 28, 2026", "title": "Death certificate received", "badge": "Document", "badge_variant": "outline"}
+]) }}
+') %}
+  <div class="w-full max-w-md">
+    {{ timeline(items=[
+      {"date": "Aug 12, 2026", "title": "Notary meeting", "description": "Signed the will validation.", "badge": "Meeting"},
+      {"date": "Aug 5, 2026",  "title": "Bank account closed", "description": "RBC chequing account #1234.", "badge": "Task", "badge_variant": "secondary"},
+      {"date": "Jul 28, 2026", "title": "Death certificate received", "badge": "Document", "badge_variant": "outline"}
+    ]) }}
+  </div>
+{% endcall %}
+
+{# ── Metric Pill ── #}
+{% call section("Metric Pill", "Compact inline pill for a labeled metric. Good for dense dashboards or summary rows.", '
+{% from "components/metric_pill.html" import metric_pill %}
+{{ metric_pill(label="Net Worth", value="$412,300") }}
+{{ metric_pill(label="Debts", value="$18,900", trend="down") }}
+{{ metric_pill(label="Assets Sold", value="+3 this month", trend="up") }}
+') %}
+  {{ metric_pill(label="Net Worth", value="$412,300") }}
+  {{ metric_pill(label="Debts", value="$18,900", trend="down") }}
+  {{ metric_pill(label="Assets Sold", value="+3 this month", trend="up") }}
+{% endcall %}
+
+{# ── Theme Switcher ── #}
+{% call section("Theme Switcher", "Toggle light/dark mode. Powered by Basecoat's built-in theme API.", '
+<button
+  type="button"
+  aria-label="Toggle dark mode"
+  onclick="window.basecoat.theme.toggle()"
+  class="btn" data-variant="outline" data-size="icon"
+>
+  <span class="hidden dark:block"><!-- sun icon --></span>
+  <span class="block dark:hidden"><!-- moon icon --></span>
+</button>
+') %}
+  <button
+    type="button"
+    aria-label="Toggle dark mode"
+    data-tooltip="Toggle dark mode"
+    data-side="bottom"
+    onclick="window.basecoat.theme.toggle()"
+    class="btn" data-variant="outline" data-size="icon"
+  >
+    <span class="hidden dark:block">
+      <svg class="lucide lucide-sun size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+    </span>
+    <span class="block dark:hidden">
+      <svg class="lucide lucide-moon size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+    </span>
+  </button>
+{% endcall %}
+
+{% endblock %}

@@ -1,0 +1,42 @@
+{#
+  Action menu: a single "Action" button (label, a thin vertical divider,
+  then a trailing chevron-down icon — matching the shadcn "Copy Page"
+  split-button style) that opens a Basecoat dropdown menu of row-level
+  actions (View, Edit, Delete, etc). This is the standard replacement for
+  a loose row of separate buttons (View / Edit / Delete) in any data
+  table's actions column.
+
+  Usage:
+    {% from "components/action_menu.html" import action_menu %}
+    {{ action_menu(
+      id="row-actions-" ~ row.id,
+      items=[
+        {"label": "View", "url": url_for('detail_x', item_id=row.id)},
+        {"label": "Edit", "url": url_for('edit_x', item_id=row.id)},
+        {"type": "separator"},
+        {"label": "Delete", "attrs": {"class": "text-destructive", "onclick": "..."}}
+      ]
+    ) }}
+
+  Params:
+    id            {string} Unique id, so multiple menus on one page don't collide
+                  (e.g. one per table row) — pass "row-actions-" ~ row.id.
+    items         {list}   Same shape as basecoat/dropdown-menu.html.jinja's
+                  `items` param: each dict is {label, url?, icon?, attrs?}
+                  or {"type": "separator"}.
+    label         {string} Trigger button text. Default "Action".
+    align         {string} Popover alignment: "start" | "end". Default "end"
+                  (right-aligned), since this is almost always the last
+                  column in a table and should never overflow past the
+                  right edge of the viewport.
+#}
+{% from "basecoat/dropdown-menu.html.jinja" import dropdown_menu %}
+{% macro action_menu(id, items, label="Action", align="end") %}
+{{ dropdown_menu(
+  id=id,
+  trigger='<span>' ~ label ~ '</span><span class="w-px h-4 bg-border mx-1"></span><svg class="lucide lucide-chevron-down size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+  trigger_attrs={"class": "btn", "data-variant": "outline", "data-size": "sm"},
+  popover_attrs={"data-align": align},
+  items=items
+) }}
+{% endmacro %}
