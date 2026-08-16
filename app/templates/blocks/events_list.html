@@ -40,7 +40,7 @@
 
 {% call(row) data_table(columns=columns, rows=events, sort=sort, order=order, base_url=url_for("list_events"), responsive=true) %}
   {% call table_cell("Date", numeric=true, class_="text-muted-foreground") %}{{ row.event_date or "—" }}{% endcall %}
-  {% call table_cell("Type") %}<span class="badge" data-variant="outline">{{ row.type }}</span>{% endcall %}
+  {% call table_cell("Type") %}<span class="badge" data-variant="outline">{{ row.type }}{% if row.type == "Email" and row.email_direction %} · {{ row.email_direction | title }}{% endif %}</span>{% endcall %}
   {% call table_cell("Contact", secondary=true) %}{{ row.contact or "—" }}{% endcall %}
   {% call table_cell("Topic", primary=true, summary=true, summary_title=row.title, hide_label=true) %}{{ row.title }}{% endcall %}
   {% call table_cell("Actions", action=true, class_="text-end") %}

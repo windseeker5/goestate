@@ -1,6 +1,9 @@
 import os
 
+import bleach
+import markdown
 from flask import Flask, redirect, request, url_for
+from markupsafe import Markup
 
 from app.config import DevConfig
 
@@ -8,6 +11,29 @@ from app.config import DevConfig
 def create_app(config_object=DevConfig):
     app = Flask(__name__)
     app.config.from_object(config_object)
+
+    @app.template_filter("markdown")
+    def render_markdown(text):
+        """Render model Markdown while allowing only safe presentation HTML."""
+        if not text:
+            return ""
+
+        raw_html = markdown.markdown(
+            text,
+            extensions=["tables", "fenced_code", "nl2br"],
+        )
+        clean_html = bleach.clean(
+            raw_html,
+            tags={
+                "a", "blockquote", "br", "code", "del", "em", "h1", "h2",
+                "h3", "h4", "hr", "li", "ol", "p", "pre", "strong", "table",
+                "tbody", "td", "th", "thead", "tr", "ul",
+            },
+            attributes={"a": ["href", "title"]},
+            protocols={"http", "https", "mailto"},
+            strip=True,
+        )
+        return Markup(clean_html)
 
     @app.template_global()
     def asset_version(static_relative_path):
@@ -43,9 +69,9 @@ def create_app(config_object=DevConfig):
 
     # Plain functions, one file per domain. No blueprints — this is a
     # single-user local app, so the extra indirection isn't worth it.
-    from app.routes import public, dashboard, assets, liabilities, events, documents, chat, users
+    from app.routes import public, dashboard, assets, liabilities, events, documents, chat, users, tasks
 
-    for module in (public, dashboard, assets, liabilities, events, documents, chat, users):
+    for module in (public, dashboard, assets, liabilities, events, documents, chat, users, tasks):
         module.register(app)
 
     from app.commands import init_db_command, verify_vec_command

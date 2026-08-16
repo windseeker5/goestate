@@ -1,3 +1,5 @@
+from datetime import date
+
 from flask import g, redirect, render_template, request, url_for
 
 from app.auth import admin_required
@@ -9,11 +11,27 @@ def register(app):
     def dashboard():
         db = get_db()
         asset_count = db.execute("SELECT COUNT(*) FROM assets").fetchone()[0]
+        asset_total = db.execute(
+            "SELECT COALESCE(SUM(estimated_value), 0) FROM assets"
+        ).fetchone()[0]
         liability_count = db.execute(
             "SELECT COUNT(*) FROM liabilities WHERE status != 'Paid'"
         ).fetchone()[0]
+        liability_total = db.execute(
+            "SELECT COALESCE(SUM(amount), 0) FROM liabilities WHERE status != 'Paid'"
+        ).fetchone()[0]
         event_count = db.execute("SELECT COUNT(*) FROM events").fetchone()[0]
         document_count = db.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
+
+        open_task_count = db.execute(
+            "SELECT COUNT(*) FROM tasks WHERE user_id = ? AND status NOT IN ('Done', 'Cancelled')",
+            (g.user["id"],),
+        ).fetchone()[0]
+        upcoming_tasks = db.execute(
+            "SELECT * FROM tasks WHERE user_id = ? AND status NOT IN ('Done', 'Cancelled') "
+            "ORDER BY (due_date IS NULL), due_date ASC LIMIT 5",
+            (g.user["id"],),
+        ).fetchall()
 
         # Sort by event_date DESC so the most recently *dated* entry is
         # always at the top — a call logged for Aug 14 should appear above
@@ -31,11 +49,16 @@ def register(app):
         return render_template(
             "blocks/dashboard.html",
             asset_count=asset_count,
+            asset_total=f"${asset_total:,.2f}",
             liability_count=liability_count,
+            liability_total=f"${liability_total:,.2f}",
             event_count=event_count,
             document_count=document_count,
             recent_events=recent_events,
             display_name=display_name,
+            open_task_count=open_task_count,
+            upcoming_tasks=upcoming_tasks,
+            today=date.today().isoformat(),
         )
 
     @app.route("/app/settings", methods=["GET", "POST"])

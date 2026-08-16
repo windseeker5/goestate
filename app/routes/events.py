@@ -5,6 +5,7 @@ from app.db import get_db
 
 PAGE_SIZE = 10
 TYPES = ["Note", "Call", "Meeting", "Email", "Task"]
+EMAIL_DIRECTIONS = {"inbound", "outbound"}
 
 
 def _filter_sort(rows, q, type_, sort, order):
@@ -51,20 +52,32 @@ def register(app):
     @admin_required
     def new_event():
         if request.method == "POST":
+            type_ = request.form.get("type", "Note")
+            email_direction = request.form.get("email_direction", "").strip().lower()
+            if type_ == "Email" and email_direction not in EMAIL_DIRECTIONS:
+                return render_template(
+                    "blocks/events_form.html",
+                    item=None,
+                    types=TYPES,
+                    form_data=request.form,
+                    error="Choose whether this email was inbound or outbound.",
+                ), 400
             db = get_db()
             db.execute(
-                "INSERT INTO events (title, contact, type, event_date, notes) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO events (title, contact, type, email_direction, event_date, notes) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
                 (
                     request.form.get("title", "").strip(),
                     request.form.get("contact", "").strip(),
-                    request.form.get("type", "Note"),
+                    type_,
+                    email_direction if type_ == "Email" else None,
                     request.form.get("event_date") or None,
                     request.form.get("notes", "").strip(),
                 ),
             )
             db.commit()
             return redirect(url_for("list_events"))
-        return render_template("blocks/events_form.html", item=None, types=TYPES)
+        return render_template("blocks/events_form.html", item=None, types=TYPES, form_data=None, error=None)
 
     @app.route("/app/events/<int:item_id>")
     def detail_event(item_id):
@@ -82,13 +95,24 @@ def register(app):
         if item is None:
             abort(404)
         if request.method == "POST":
+            type_ = request.form.get("type", "Note")
+            email_direction = request.form.get("email_direction", "").strip().lower()
+            if type_ == "Email" and email_direction not in EMAIL_DIRECTIONS:
+                return render_template(
+                    "blocks/events_form.html",
+                    item=item,
+                    types=TYPES,
+                    form_data=request.form,
+                    error="Choose whether this email was inbound or outbound.",
+                ), 400
             db.execute(
-                "UPDATE events SET title=?, contact=?, type=?, event_date=?, notes=?, "
+                "UPDATE events SET title=?, contact=?, type=?, email_direction=?, event_date=?, notes=?, "
                 "updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=?",
                 (
                     request.form.get("title", "").strip(),
                     request.form.get("contact", "").strip(),
-                    request.form.get("type", "Note"),
+                    type_,
+                    email_direction if type_ == "Email" else None,
                     request.form.get("event_date") or None,
                     request.form.get("notes", "").strip(),
                     item_id,
@@ -96,7 +120,7 @@ def register(app):
             )
             db.commit()
             return redirect(url_for("list_events"))
-        return render_template("blocks/events_form.html", item=item, types=TYPES)
+        return render_template("blocks/events_form.html", item=item, types=TYPES, form_data=None, error=None)
 
     @app.route("/app/events/<int:item_id>/delete", methods=["POST"])
     @admin_required

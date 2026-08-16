@@ -26,7 +26,7 @@
         </div>
         <div>
           <dt class="text-xs text-muted-foreground uppercase tracking-wide">Type</dt>
-          <dd class="mt-1"><span class="badge" data-variant="outline">{{ item.type }}</span></dd>
+          <dd class="mt-1"><span class="badge" data-variant="outline">{{ item.type }}{% if item.type == "Email" and item.email_direction %} · {{ item.email_direction | title }}{% endif %}</span></dd>
         </div>
         <div>
           <dt class="text-xs text-muted-foreground uppercase tracking-wide">Date</dt>

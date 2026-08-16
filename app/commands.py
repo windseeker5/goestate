@@ -74,7 +74,28 @@ CREATE TABLE IF NOT EXISTS events (
     contact         TEXT,               -- name of person/org contacted
     type            TEXT    DEFAULT 'Note',
                                         -- Note | Call | Meeting | Email | Task
+    email_direction TEXT,               -- inbound | outbound; only applies to Email
     event_date      TEXT,               -- ISO date string YYYY-MM-DD
+    notes           TEXT,
+    created_at      TEXT    DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+    updated_at      TEXT    DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+-- ──────────────────────────────────────────────────────────
+-- Tasks (personal to-do list, scoped to the owning user)
+-- ──────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS tasks (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         INTEGER NOT NULL REFERENCES users(id),
+                                        -- owner; a task is only ever visible
+                                        -- to this user, regardless of role
+    title           TEXT    NOT NULL,
+    due_date        TEXT,               -- ISO date string YYYY-MM-DD
+    priority        TEXT    DEFAULT 'Medium',
+                                        -- Low | Medium | High
+    status          TEXT    DEFAULT 'Open',
+                                        -- Open | In Progress | Done | Cancelled
     notes           TEXT,
     created_at      TEXT    DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     updated_at      TEXT    DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
@@ -154,6 +175,7 @@ def init_db_command():
             ("assets", "photo_mime_type", "TEXT"),
             ("liabilities", "photo_path", "TEXT"),
             ("liabilities", "photo_mime_type", "TEXT"),
+            ("events", "email_direction", "TEXT"),
         )
         for table, column, column_type in migrations:
             existing_columns = {
@@ -165,7 +187,7 @@ def init_db_command():
                 click.echo(click.style(f"  [OK] Migrated: added {table}.{column} column.", fg="green"))
 
         click.echo(click.style("  [OK] Database initialised.", fg="green"))
-        click.echo(click.style("       Tables: users, assets, liabilities, events, documents,", dim=True))
+        click.echo(click.style("       Tables: users, assets, liabilities, events, tasks, documents,", dim=True))
         click.echo(click.style("               settings, doc_chunks, doc_chunk_meta", dim=True))
 
         # Print sqlite-vec version as confirmation the extension loaded.

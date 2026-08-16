@@ -29,11 +29,12 @@
   ) | string if g.user and g.user.role == "admin" else None
 ) }}
 
-<div class="grid grid-cols-2 gap-4 lg:grid-cols-4 mb-6">
-  {{ stat_card(label="Assets",      value=asset_count|string) }}
-  {{ stat_card(label="Liabilities", value=liability_count|string) }}
+<div class="grid grid-cols-2 gap-4 lg:grid-cols-5 mb-6">
+  {{ stat_card(label="Assets",      value=asset_total,     delta=asset_count|string ~ " asset" ~ ("s" if asset_count != 1 else "")) }}
+  {{ stat_card(label="Outstanding Liabilities", value=liability_total, delta=liability_count|string ~ " liabilit" ~ ("ies" if liability_count != 1 else "y")) }}
   {{ stat_card(label="Timeline",    value=event_count|string) }}
   {{ stat_card(label="Documents",   value=document_count|string) }}
+  {{ stat_card(label="Tasks",       value=open_task_count|string) }}
 </div>
 
 {#
@@ -48,32 +49,61 @@
   "Note":    "outline"
 } %}
 
-<div class="card">
-  <header><h2>Latest Activity</h2><p>Most recently logged timeline entries, across everyone with access.</p></header>
-  <section>
+{% set task_status_badge_variant = {"Open": "outline", "In Progress": "default", "Done": "secondary", "Cancelled": "secondary"} %}
+
+<div class="grid gap-4 md:grid-cols-2">
+  <div class="card{{ ' md:col-span-2' if not upcoming_tasks else '' }}">
+    <header><h2>Latest Activity</h2><p>Most recently logged timeline entries, across everyone with access.</p></header>
+    <section>
+      {% if recent_events %}
+      {% set timeline_items = [] %}
+      {% for row in recent_events %}
+        {% set _ = timeline_items.append({
+          "date": row.event_date or row.created_at.split("T")[0],
+          "title": row.title,
+          "description": row.contact,
+          "badge": row.type,
+          "badge_variant": type_badge_variant.get(row.type, "outline")
+        }) %}
+      {% endfor %}
+      {{ timeline(items=timeline_items) }}
+      {% else %}
+      {{ empty_state(
+        title="No activity yet",
+        description="Calls, meetings, and other timeline entries will show up here as soon as they're logged."
+      ) }}
+      {% endif %}
+    </section>
     {% if recent_events %}
-    {% set timeline_items = [] %}
-    {% for row in recent_events %}
-      {% set _ = timeline_items.append({
-        "date": row.event_date or row.created_at.split("T")[0],
-        "title": row.title,
-        "description": row.contact,
-        "badge": row.type,
-        "badge_variant": type_badge_variant.get(row.type, "outline")
-      }) %}
-    {% endfor %}
-    {{ timeline(items=timeline_items) }}
-    {% else %}
-    {{ empty_state(
-      title="No activity yet",
-      description="Calls, meetings, and other timeline entries will show up here as soon as they're logged."
-    ) }}
+    <footer class="justify-end">
+      <a href="{{ url_for('list_events') }}" class="btn" data-variant="ghost" data-size="sm">View full timeline</a>
+    </footer>
     {% endif %}
-  </section>
-  {% if recent_events %}
-  <footer class="justify-end">
-    <a href="{{ url_for('list_events') }}" class="btn" data-variant="ghost" data-size="sm">View full timeline</a>
-  </footer>
+  </div>
+
+  {% if upcoming_tasks %}
+  <div class="card">
+    <header><h2>My Tasks</h2><p>Open items you still need to handle.</p></header>
+    <section>
+      {% set task_items = [] %}
+      {% for row in upcoming_tasks %}
+        {% set overdue = row.due_date and row.due_date < today %}
+        {% set _ = task_items.append({
+          "date": ("Overdue — " ~ row.due_date) if overdue else (row.due_date or "No due date"),
+          "title": row.title,
+          "description": row.priority ~ " priority",
+          "badge": row.status,
+          "badge_variant": "destructive" if overdue else task_status_badge_variant.get(row.status, "outline"),
+          "complete_action": url_for('toggle_task', item_id=row.id)
+        }) %}
+      {% endfor %}
+      {{ timeline(items=task_items) }}
+    </section>
+    <footer class="justify-end gap-2">
+      <a href="{{ url_for('new_task') }}" class="btn" data-variant="outline" data-size="sm">+ Add task</a>
+      <a href="{{ url_for('list_tasks') }}" class="btn" data-variant="ghost" data-size="sm">View all tasks</a>
+    </footer>
+  </div>
   {% endif %}
 </div>
 

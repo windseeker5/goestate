@@ -54,6 +54,18 @@ proxy container can reach the Flask app on the host.
 `init-db` and `verify-vec` are CLI-only commands, run via `flask --app
 wsgi`. Day-to-day, just use `python app.py` to start the server.
 
+### Gunicorn and scanned PDFs
+
+When running the application through Gunicorn, use the included configuration:
+
+```bash
+./venv/bin/gunicorn --config gunicorn.conf.py --bind 127.0.0.1:5001 wsgi:app
+```
+
+It gives scanned-PDF OCR and document analysis up to 10 minutes to complete.
+Gunicorn's default 30-second request timeout can otherwise end the upload with
+an Internal Server Error while Docling is still processing the document.
+
 | Route | What you see |
 |---|---|
 | `/` | Landing page |

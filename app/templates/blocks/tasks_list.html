@@ -1,0 +1,68 @@
+{% extends "layouts/app.html" %}
+{% from "components/page_header.html"   import page_header %}
+{% from "components/search_filter.html" import search_filter %}
+{% from "components/data_table.html"    import data_table, table_cell %}
+{% from "components/pagination.html"    import pagination %}
+{% from "components/action_menu.html"   import action_menu %}
+
+{% block title %}Tasks – Estate Copilot{% endblock %}
+{% block breadcrumb %}Tasks{% endblock %}
+
+{% block content %}
+
+{% set priority_badge_variant = {"High": "destructive", "Medium": "default", "Low": "outline"} %}
+
+{{ page_header(
+  title="Tasks",
+  description="Your personal to-do list for this estate — only visible to you.",
+  action=('<a href="' ~ url_for("new_task") ~ '" class="btn"><svg data-icon="inline-start" class="lucide lucide-plus" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add task</a>')
+) }}
+
+{{ search_filter(
+  action=url_for("list_tasks"),
+  q=q
+) }}
+
+<p class="text-sm text-muted-foreground mb-3">{{ total }} record{{ "s" if total != 1 else "" }}</p>
+
+{% set columns = [
+  {"key": "due_date", "label": "Due Date", "sortable": true, "class_": "w-28"},
+  {"key": "title",    "label": "Title",    "sortable": true},
+  {"key": "priority", "label": "Priority", "sortable": true, "class_": "w-28"},
+  {"key": "status",   "label": "Status",   "sortable": false, "class_": "w-28"},
+  {"key": "_actions", "label": "",         "sortable": false, "align": "end", "class_": "w-28"}
+] %}
+
+{% call(row) data_table(columns=columns, rows=tasks, sort=sort, order=order, base_url=url_for("list_tasks"), responsive=true) %}
+  {% call table_cell("Due date", numeric=true, class_="text-muted-foreground") %}{{ row.due_date or "—" }}{% endcall %}
+  {% call table_cell("Title", primary=true, summary=true, summary_title=row.title, class_="font-medium") %}{{ row.title }}{% endcall %}
+  {% call table_cell("Priority") %}
+    <span class="badge" data-variant="{{ priority_badge_variant.get(row.priority, 'outline') }}">
+      {{ row.priority }}
+    </span>
+  {% endcall %}
+  {% call table_cell("Status") %}
+    <span class="badge" data-variant="{{ 'secondary' if row.status in ('Done', 'Cancelled') else 'outline' }}">
+      {{ row.status }}
+    </span>
+  {% endcall %}
+  {% call table_cell("Actions", action=true, class_="text-end") %}
+    {% set row_actions = [
+      {"label": "View", "url": url_for('detail_task', item_id=row.id)},
+      {"label": "Edit", "url": url_for('edit_task', item_id=row.id)},
+      {"type": "separator"},
+      {"label": "Delete", "attrs": {"class": "text-destructive", "onclick": "if(confirm('Delete this task?')) document.getElementById('delete-form-" ~ row.id ~ "').submit()"}}
+    ] %}
+    <form id="delete-form-{{ row.id }}" method="post" action="{{ url_for('delete_task', item_id=row.id) }}" class="hidden"></form>
+    {{ action_menu(id="task-actions-" ~ row.id, items=row_actions) }}
+  {% endcall %}
+{% endcall %}
+
+{{ pagination(
+  page=page,
+  total_pages=total_pages,
+  base_url=url_for("list_tasks"),
+  extra_params={"q": q, "sort": sort, "order": order}
+) }}
+
+{% endblock %}

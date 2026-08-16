@@ -1,0 +1,78 @@
+{% extends "layouts/app.html" %}
+{% from "components/page_header.html" import page_header %}
+{% from "components/alert.html" import alert %}
+{% from "basecoat/select.html.jinja" import select %}
+
+{% set is_edit = item is not none %}
+{% set values = form_data if form_data else item %}
+{% block title %}{{ "Edit" if is_edit else "New" }} Task – Estate Copilot{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('list_tasks') }}" class="hover:underline text-muted-foreground">Tasks</a>
+  <span class="mx-2 text-muted-foreground">/</span>
+  {{ "Edit" if is_edit else "New Task" }}
+{% endblock %}
+
+{% block content %}
+
+{{ page_header(
+  title="Edit Task" if is_edit else "New Task",
+  description="Fill in the details below."
+) }}
+
+<div class="max-w-2xl">
+  {% if error %}
+  {{ alert(title="Task not saved", message=error, variant="destructive") }}
+  {% endif %}
+
+  <div class="card">
+    <header><h2>Task Details</h2></header>
+    <section>
+      <form id="task-form" method="post" class="grid gap-5">
+        <div class="grid gap-2">
+          <label class="label" for="title">Title</label>
+          <input class="input" type="text" id="title" name="title" value="{{ values.title if values else '' }}" placeholder="e.g. Get appraisal for the vehicle" required />
+        </div>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div class="grid gap-2">
+            <label class="label" for="due_date">Due Date</label>
+            <input class="input" type="date" id="due_date" name="due_date" value="{{ values.due_date if values and values.due_date else '' }}" />
+          </div>
+          <div class="grid gap-2">
+            <label class="label" for="priority">Priority</label>
+            {% set priority_items = [] %}
+            {% for p in priorities %}{% set _ = priority_items.append({"value": p, "label": p}) %}{% endfor %}
+            {{ select(
+              id="priority",
+              name="priority",
+              selected=(values.priority if values and values.priority else "Medium"),
+              items=priority_items
+            ) }}
+          </div>
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="status">Status</label>
+          {% set status_items = [] %}
+          {% for s in statuses %}{% set _ = status_items.append({"value": s, "label": s}) %}{% endfor %}
+          {{ select(
+            id="status",
+            name="status",
+            selected=(values.status if values and values.status else statuses[0]),
+            items=status_items
+          ) }}
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="notes">Notes</label>
+          <textarea class="input min-h-24" id="notes" name="notes">{{ values.notes if values else '' }}</textarea>
+        </div>
+      </form>
+    </section>
+    <footer class="justify-end gap-2">
+      <a href="{{ url_for('list_tasks') }}" class="btn" data-variant="ghost">Cancel</a>
+      <button type="submit" form="task-form" class="btn">
+        {{ "Save changes" if is_edit else "Create task" }}
+      </button>
+    </footer>
+  </div>
+</div>
+
+{% endblock %}

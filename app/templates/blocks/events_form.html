@@ -1,8 +1,10 @@
 {% extends "layouts/app.html" %}
 {% from "components/page_header.html" import page_header %}
+{% from "components/alert.html" import alert %}
 {% from "basecoat/select.html.jinja" import select %}
 
 {% set is_edit = item is not none %}
+{% set values = form_data if form_data else item %}
 {% block title %}{{ "Edit" if is_edit else "New" }} Timeline Entry – Estate Copilot{% endblock %}
 {% block breadcrumb %}
   <a href="{{ url_for('list_events') }}" class="hover:underline text-muted-foreground">Timeline</a>
@@ -18,22 +20,26 @@
 ) }}
 
 <div class="max-w-2xl">
+  {% if error %}
+  {{ alert(title="Timeline entry not saved", message=error, variant="destructive") }}
+  {% endif %}
+
   <div class="card">
     <header><h2>Entry Details</h2></header>
     <section>
       <form id="event-form" method="post" class="grid gap-5">
         <div class="grid gap-2">
           <label class="label" for="title">Title</label>
-          <input class="input" type="text" id="title" name="title" value="{{ item.title if item else '' }}" placeholder="e.g. Called notary re: succession documents" required />
+          <input class="input" type="text" id="title" name="title" value="{{ values.title if values else '' }}" placeholder="e.g. Called notary re: succession documents" required />
         </div>
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div class="grid gap-2">
             <label class="label" for="contact">Contact</label>
-            <input class="input" type="text" id="contact" name="contact" value="{{ item.contact if item else '' }}" placeholder="e.g. Me. Tremblay" />
+            <input class="input" type="text" id="contact" name="contact" value="{{ values.contact if values else '' }}" placeholder="e.g. Me. Tremblay" />
           </div>
           <div class="grid gap-2">
             <label class="label" for="event_date">Date</label>
-            <input class="input" type="date" id="event_date" name="event_date" value="{{ item.event_date if item and item.event_date else '' }}" />
+            <input class="input" type="date" id="event_date" name="event_date" value="{{ values.event_date if values and values.event_date else '' }}" />
           </div>
         </div>
         <div class="grid gap-2">
@@ -43,13 +49,27 @@
           {{ select(
             id="type",
             name="type",
-            selected=(item.type if item else types[0]),
+            selected=(values.type if values else types[0]),
             items=type_items
           ) }}
         </div>
+        <fieldset id="email-direction-field" class="grid gap-2" hidden>
+          <legend class="label">Email direction</legend>
+          <p class="text-sm text-muted-foreground">Was this email received or sent?</p>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <label class="flex cursor-pointer items-start gap-3 rounded-md border p-3 hover:bg-accent">
+              <input type="radio" name="email_direction" value="inbound" {% if values and values.email_direction == 'inbound' %}checked{% endif %} />
+              <span><span class="block font-medium">Inbound</span><span class="text-sm text-muted-foreground">Received from the contact</span></span>
+            </label>
+            <label class="flex cursor-pointer items-start gap-3 rounded-md border p-3 hover:bg-accent">
+              <input type="radio" name="email_direction" value="outbound" {% if values and values.email_direction == 'outbound' %}checked{% endif %} />
+              <span><span class="block font-medium">Outbound</span><span class="text-sm text-muted-foreground">Sent to the contact</span></span>
+            </label>
+          </div>
+        </fieldset>
         <div class="grid gap-2">
           <label class="label" for="notes">Notes</label>
-          <textarea class="input min-h-24" id="notes" name="notes">{{ item.notes if item else '' }}</textarea>
+          <textarea class="input min-h-24" id="notes" name="notes">{{ values.notes if values else '' }}</textarea>
         </div>
       </form>
     </section>
@@ -61,5 +81,29 @@
     </footer>
   </div>
 </div>
+
+<script>
+  (() => {
+    const typeInput = document.querySelector('#type input[name="type"]');
+    const directionField = document.getElementById("email-direction-field");
+    const directionInputs = directionField.querySelectorAll('input[name="email_direction"]');
+
+    function updateEmailDirection() {
+      const isEmail = typeInput.value === "Email";
+      directionField.hidden = !isEmail;
+      directionInputs.forEach((input) => {
+        input.disabled = !isEmail;
+        input.required = isEmail;
+      });
+    }
+
+    typeInput.addEventListener("change", updateEmailDirection);
+    new MutationObserver(updateEmailDirection).observe(
+      document.getElementById("type-trigger"),
+      { childList: true, subtree: true, characterData: true }
+    );
+    updateEmailDirection();
+  })();
+</script>
 
 {% endblock %}

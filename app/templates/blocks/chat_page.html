@@ -2,14 +2,14 @@
 {% from "components/page_header.html" import page_header %}
 {% from "components/alert.html" import alert %}
 
-{% block title %}Chat – Estate Copilot{% endblock %}
+{% block title %}Chat – Estelle{% endblock %}
 {% block breadcrumb %}Chat{% endblock %}
 
 {% block content %}
 
 {{ page_header(
-  title="Chat with the Estate File",
-  description="Ask questions about any uploaded document or logged timeline event. Answers link back to their sources."
+  title="Chat with Estelle",
+  description="Ask about uploaded estate documents, logged timeline events, or your tasks. Answers link back to their sources."
 ) }}
 
 {% if error %}
@@ -25,7 +25,7 @@
       id="chat-question"
       class="text-base py-3"
       name="question"
-      placeholder="Ask about a document or a logged call, e.g. Audrey Peltier"
+      placeholder="Ask Estelle about a document, timeline event, or task"
       required
       autofocus
       rows="1"
@@ -54,9 +54,10 @@
 
 {% if answer %}
 <div id="chat-answer-card" class="card mb-4">
-  <header><h2>Answer</h2></header>
   <section>
-    <p class="whitespace-pre-wrap">{{ answer }}</p>
+    <div class="chat-answer">
+      {{ answer | markdown }}
+    </div>
   </section>
 </div>
 
@@ -72,6 +73,8 @@
           <a href="{{ url_for('view_document', document_id=s.document_id) }}" target="_blank" rel="noopener" class="text-xs font-medium uppercase tracking-wide truncate hover:underline" onclick="event.stopPropagation()">{{ s.filename }}</a>
           {% elif s.linked_entity_type == "event" %}
           <a href="{{ url_for('detail_event', item_id=s.linked_entity_id) }}" target="_blank" rel="noopener" class="text-xs font-medium uppercase tracking-wide truncate hover:underline" onclick="event.stopPropagation()">{{ s.filename }}</a>
+          {% elif s.linked_entity_type == "task" %}
+          <a href="{{ url_for('detail_task', item_id=s.linked_entity_id) }}" target="_blank" rel="noopener" class="text-xs font-medium uppercase tracking-wide truncate hover:underline" onclick="event.stopPropagation()">{{ s.filename }}</a>
           {% else %}
           <span class="text-xs font-medium text-muted-foreground uppercase tracking-wide truncate">{{ s.filename }}</span>
           {% endif %}
@@ -79,8 +82,10 @@
         <span class="flex items-center gap-2 shrink-0">
           {% if s.distance is not none %}
           <span class="badge" data-variant="outline">distance {{ "%.3f"|format(s.distance) }}</span>
-          {% else %}
+          {% elif s.linked_entity_type == "event" %}
           <span class="badge" data-variant="secondary">timeline</span>
+          {% elif s.linked_entity_type == "task" %}
+          <span class="badge" data-variant="secondary">task</span>
           {% endif %}
           <svg class="lucide lucide-chevron-down size-4 text-muted-foreground transition-transform group-open:rotate-180" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
         </span>

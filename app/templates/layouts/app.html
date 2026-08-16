@@ -5,13 +5,14 @@
 {# Sidebar #}
 {#
   Sidebar navigation order (per UX design):
-    1. Dashboard  2. Timeline  3. Assets  4. Liabilities  5. Chat  6. Settings (admin)
+    1. Dashboard  2. Tasks  3. Timeline  4. Assets  5. Liabilities  6. Chat  7. Settings (admin)
     — Knowledge Base: Documents
   Users management is no longer in the sidebar — it lives inside Settings.
 #}
 {% set nav_items = [
   { "type": "group", "label": "Main", "items": [
     { "type": "item", "label": "Dashboard",   "url": url_for("dashboard"),        "icon": '<svg class="lucide lucide-layout-dashboard" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>', "current": (request.endpoint == "dashboard") },
+    { "type": "item", "label": "Tasks",       "url": url_for("list_tasks"),       "icon": '<svg class="lucide lucide-list-todo" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="6" height="6" rx="1"/><path d="m3 17 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>', "current": ("task" in request.endpoint) },
     { "type": "item", "label": "Timeline",    "url": url_for("list_events"),      "icon": '<svg class="lucide lucide-calendar-clock" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h5"/><path d="M17.5 17.5 16 16.25V14"/><circle cx="16" cy="16" r="6"/></svg>', "current": ("event" in request.endpoint) },
     { "type": "item", "label": "Assets",      "url": url_for("list_assets"),      "icon": '<svg class="lucide lucide-wallet" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>', "current": ("asset" in request.endpoint) },
     { "type": "item", "label": "Liabilities", "url": url_for("list_liabilities"), "icon": '<svg class="lucide lucide-receipt" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M13 16H8"/></svg>', "current": ("liability" in request.endpoint) },

@@ -2,6 +2,8 @@ flask>=3.0.0
 gunicorn>=23.0.0
 python-dotenv>=1.0.0
 sqlite-vec>=0.1.6
+markdown>=3.7
+bleach>=6.2.0
 
 # Document RAG pipeline (Phase 3+)
 docling>=2.0.0
