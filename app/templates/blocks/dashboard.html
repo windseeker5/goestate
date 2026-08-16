@@ -3,7 +3,7 @@
 {% from "components/stat_card.html"   import stat_card %}
 {% from "components/empty_state.html" import empty_state %}
 {% from "components/timeline.html"    import timeline %}
-{% from "basecoat/dropdown-menu.html.jinja" import dropdown_menu %}
+{% from "components/action_menu.html" import action_menu %}
 
 {% block title %}Dashboard – Estate Copilot{% endblock %}
 {% block breadcrumb %}{% endblock %}
@@ -11,23 +11,13 @@
 {% block content %}
 
 {% set first_name = display_name.split(" ")[0] if display_name else "" %}
-{#
-  The "Quick Add" action button lives to the right of the welcome heading.
-  It gives both desktop and mobile users instant access to the most common
-  create-new actions without navigating away first.
-  Only admin users can create things, so the button is admin-only.
-#}
-{% set quick_add_trigger %}
-<svg data-icon="inline-start" class="lucide lucide-plus-circle" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></svg>
-Quick add
-{% endset %}
+{# Only admin users can create things, so the action menu is admin-only. #}
 {{ page_header(
   title=("Welcome back, " ~ first_name ~ ".") if first_name else "Welcome back.",
   description="Here's a quick look at where things stand.",
-  action=dropdown_menu(
-    trigger=quick_add_trigger,
-    trigger_attrs={"class": "btn", "data-variant": "outline"},
-    popover_attrs={"data-align": "end"},
+  action=action_menu(
+    id="dashboard-actions",
+    label="+ Add to estate",
     items=[
       {"label": "Log timeline entry", "url": url_for("new_event"),      "icon": '<svg class="lucide lucide-calendar-clock" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h5"/><path d="M17.5 17.5 16 16.25V14"/><circle cx="16" cy="16" r="6"/></svg>'},
       {"label": "Add asset",          "url": url_for("new_asset"),       "icon": '<svg class="lucide lucide-wallet" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>'},

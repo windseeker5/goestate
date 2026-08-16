@@ -172,4 +172,12 @@
       display: none;
     }
   }
+
+  /* The compact dashboard trigger is narrower than its menu on mobile. */
+  @media (max-width: 47.999rem) {
+    #dashboard-actions [data-popover] {
+      left: 0;
+      right: auto;
+    }
+  }
 }
