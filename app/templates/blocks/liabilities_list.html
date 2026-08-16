@@ -34,7 +34,7 @@
 {% call(row) data_table(columns=columns, rows=liabilities, sort=sort, order=order, base_url=url_for("list_liabilities"), responsive=true) %}
   {% call table_cell("Due date", numeric=true, class_="text-muted-foreground") %}{{ row.due_date or "—" }}{% endcall %}
   {% call table_cell("Creditor", primary=true, summary=true, summary_title=row.creditor, class_="font-medium") %}{{ row.creditor }}{% endcall %}
-  {% call table_cell("Amount", numeric=true, class_="text-end") %}{{ "$%.2f"|format(row.amount) if row.amount else "—" }}{% endcall %}
+  {% call table_cell("Amount", numeric=true, class_="text-end") %}{{ row.amount|money(zero_blank=true) }}{% endcall %}
   {% call table_cell("Status") %}
     <span class="badge" data-variant="{{ 'secondary' if row.status in ('Paid', 'Cancelled') else 'outline' }}">
       {{ row.status }}

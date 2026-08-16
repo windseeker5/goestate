@@ -43,8 +43,8 @@
     {% endif %}
   {% endcall %}
   {% call table_cell("Category") %}{{ row.category or "—" }}{% endcall %}
-  {% call table_cell("Estimated value", numeric=true, class_="text-end") %}{{ "$%.2f"|format(row.estimated_value) if row.estimated_value else "—" }}{% endcall %}
-  {% call table_cell("Sale price", numeric=true, class_="text-end") %}{{ "$%.2f"|format(row.sale_price) if row.sale_price else "—" }}{% endcall %}
+  {% call table_cell("Estimated value", numeric=true, class_="text-end") %}{{ row.estimated_value|money(zero_blank=true) }}{% endcall %}
+  {% call table_cell("Sale price", numeric=true, class_="text-end") %}{{ row.sale_price|money(zero_blank=true) }}{% endcall %}
   {% call table_cell("Status") %}
     <span class="badge" data-variant="{{ 'secondary' if row.status in ('Sold', 'Distributed') else 'outline' }}">
       {{ row.status }}

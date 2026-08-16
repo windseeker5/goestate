@@ -12,6 +12,9 @@ def _filter_sort(rows, q, sort, order):
         q_l = q.lower()
         rows = [r for r in rows if q_l in str(dict(r).values()).lower()]
     rows = sorted(rows, key=lambda r: str(r[sort] if r[sort] is not None else ""), reverse=(order == "desc"))
+    if sort == "due_date":
+        # Keep undated tasks after dated ones in either date direction.
+        rows = sorted(rows, key=lambda r: r["due_date"] is None)
     return rows
 
 

@@ -219,9 +219,12 @@
     .responsive-table .table td[data-label]::before {
       content: attr(data-label);
       color: var(--muted-foreground);
-      font-size: 0.75rem;
+      /* Follows --text-xs rather than hardcoding 12px, so the mobile density
+         block below lifts these record labels too. Tablets (768–1280px) keep
+         the original 12px because they don't get the token override. */
+      font-size: var(--text-xs);
       font-weight: 500;
-      line-height: 1.25rem;
+      line-height: 1.4;
       justify-self: start;
       text-align: left;
     }
@@ -282,6 +285,85 @@
     #dashboard-actions [data-popover] {
       left: 0;
       right: auto;
+    }
+  }
+
+  /*
+    ── Mobile density pass ──────────────────────────────────────────────────
+    Basecoat/shadcn is tuned for a mouse on a desktop dashboard: 14px body
+    text and 36px controls. On a phone that is genuinely too small — it fails
+    Material 3 (48dp touch targets), Apple HIG (44pt), and WCAG 2.5.5. This
+    block re-tunes density below 768px only; desktop is untouched.
+
+    Two things make this cheap:
+      1. Basecoat reads every size from a token, and Tailwind's own utilities
+         compile to `font-size: var(--text-sm)` — so overriding the token
+         lifts components AND utility classes in one shot.
+      2. The line-height tokens are unitless ratios
+         (--text-sm--line-height: calc(1.25 / 0.875)), so leading rescales
+         automatically and must NOT be overridden here.
+
+    --spacing is deliberately left alone: it drives the whole layout grid, so
+    raising it would cascade into padding, gaps and widths unpredictably.
+    Touch targets get explicit min-heights instead.
+
+    The 47.999rem (768px) breakpoint matches Basecoat's hardcoded sidebar
+    breakpoint — see the note in layouts/app.html. Don't introduce a new one.
+
+    Audience is executors/family, frequently 50+, so this targets 17px body
+    text and 48px rows rather than the bare platform minimums.
+  */
+  @media (max-width: 47.999rem) {
+    :root {
+      --text-xs: 0.875rem;   /* 12px -> 14px  (secondary/meta text) */
+      --text-sm: 1.0625rem;  /* 14px -> 17px  (body, labels, buttons) */
+      --text-base: 1.125rem; /* 16px -> 18px */
+      /* --text-lg and above are already comfortable; leave them. */
+    }
+
+    /* Touch targets. min-height (not height) so labels that wrap can grow. */
+    .btn:not([data-size]),
+    .btn[data-size='default'],
+    .btn[data-size='sm'],
+    .btn[data-size='lg'],
+    .input,
+    .select,
+    select,
+    textarea,
+    [role='menuitem'],
+    [role='option'] {
+      min-height: 3rem;
+    }
+
+    .btn[data-size='icon'],
+    .btn[data-size='icon-sm'],
+    .btn[data-size='icon-lg'] {
+      width: auto;
+      height: auto;
+      min-width: 3rem;
+      min-height: 3rem;
+    }
+
+    /*
+      xs buttons live in dense table action cells, so they get the WCAG 2.2 AA
+      floor of 44px rather than the full 48px, to limit how much record rows
+      grow on list pages.
+    */
+    .btn[data-size='xs'] {
+      min-height: 2.75rem;
+    }
+
+    .btn[data-size='icon-xs'] {
+      width: auto;
+      height: auto;
+      min-width: 2.75rem;
+      min-height: 2.75rem;
+    }
+
+    .sidebar nav li > :is(a, button),
+    .sidebar nav li > details > summary {
+      min-height: 3rem;
+      align-items: center;
     }
   }
 }

@@ -34,11 +34,11 @@
         </div>
         <div>
           <dt class="text-xs text-muted-foreground uppercase tracking-wide">Estimated Value</dt>
-          <dd class="mt-1 font-medium">{{ "$%.2f"|format(item.estimated_value) if item.estimated_value else "—" }}</dd>
+          <dd class="mt-1 font-medium tabular-nums">{{ item.estimated_value|money(zero_blank=true) }}</dd>
         </div>
         <div>
           <dt class="text-xs text-muted-foreground uppercase tracking-wide">Sale Price</dt>
-          <dd class="mt-1 font-medium">{{ "$%.2f"|format(item.sale_price) if item.sale_price else "—" }}</dd>
+          <dd class="mt-1 font-medium tabular-nums">{{ item.sale_price|money(zero_blank=true) }}</dd>
         </div>
         <div>
           <dt class="text-xs text-muted-foreground uppercase tracking-wide">Status</dt>

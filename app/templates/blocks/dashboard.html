@@ -11,15 +11,31 @@
 {% block content %}
 
 {% set first_name = display_name.split(" ")[0] if display_name else "" %}
-{# Only admin users can create things, so the action menu is admin-only. #}
+{# Only admin users can create things, so the action menu is admin-only.
+
+   This is the app's primary call to action, so it deliberately overrides the
+   action_menu defaults: "primary" (not the row-action "outline", which reads
+   as secondary), "lg", a real plus icon instead of a "+" typed into the label,
+   and no split-button divider since the whole button opens one menu. shadow-sm
+   restores the elevation that the outline variant has and primary lacks.
+   It goes full width on phones — both the button and page_header's otherwise
+   shrink-to-fit action wrapper need the class for that to take effect. #}
 {{ page_header(
   title=("Welcome back, " ~ first_name ~ ".") if first_name else "Welcome back.",
   description="Here's a quick look at where things stand.",
+  action_class="w-full sm:w-auto",
   action=action_menu(
     id="dashboard-actions",
-    label="+ Add to estate",
+    label="Add to estate",
+    icon='<svg data-icon="inline-start" class="lucide lucide-plus size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>',
+    variant="primary",
+    size="lg",
+    divider=false,
+    class_="w-full sm:w-auto shadow-sm",
+    wrapper_class="w-full sm:w-auto",
     items=[
       {"label": "Log timeline entry", "url": url_for("new_event"),      "icon": '<svg class="lucide lucide-calendar-clock" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h5"/><path d="M17.5 17.5 16 16.25V14"/><circle cx="16" cy="16" r="6"/></svg>'},
+      {"label": "Add task",           "url": url_for("new_task"),        "icon": '<svg class="lucide lucide-list-checks" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>'},
       {"label": "Add asset",          "url": url_for("new_asset"),       "icon": '<svg class="lucide lucide-wallet" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>'},
       {"label": "Add liability",       "url": url_for("new_liability"),   "icon": '<svg class="lucide lucide-receipt" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M13 16H8"/></svg>'},
       {"label": "Add document",        "url": url_for("list_documents"),  "icon": '<svg class="lucide lucide-file-plus" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M9 15h6"/><path d="M12 12v6"/></svg>'},
@@ -29,12 +45,39 @@
   ) | string if g.user and g.user.role == "admin" else None
 ) }}
 
-<div class="grid grid-cols-2 gap-4 lg:grid-cols-5 mb-6">
-  {{ stat_card(label="Assets",      value=asset_total,     delta=asset_count|string ~ " asset" ~ ("s" if asset_count != 1 else "")) }}
-  {{ stat_card(label="Outstanding Liabilities", value=liability_total, delta=liability_count|string ~ " liabilit" ~ ("ies" if liability_count != 1 else "y")) }}
-  {{ stat_card(label="Timeline",    value=event_count|string) }}
-  {{ stat_card(label="Documents",   value=document_count|string) }}
-  {{ stat_card(label="Tasks",       value=open_task_count|string) }}
+{#
+  Six-column base grid so the five cards can split evenly two-across on phones
+  (span 3) with Tasks taking the full width (span 6) on the last row. A flat
+  grid-cols-2 left Tasks orphaned beside an empty cell.
+
+  Two-across rather than three: the cards carry 24px of padding per side, so a
+  three-across row on a 412px screen leaves only ~63px of content width, which
+  clips a label like "Documents" at the mobile 17px type size. Widening to
+  span-3 gives ~126px and it fits. Don't shrink the labels to squeeze in a
+  third column — larger type is the point of the mobile density pass.
+
+  The two money cards get a full row each on mobile. A half-width card leaves
+  ~127px of content, but "$492,501" at the mobile type size still overruns it.
+  |money_compact caps the growth (seven figures collapse to "$1.25M" rather
+  than running unbounded), but it doesn't shrink six-figure totals, which is
+  where most estates sit — so keep the full row. The three plain counts are
+  short and stay two-across.
+
+  Below 360px everything collapses to one column — that's the width users land
+  on at 200% zoom or with a large Android font scale.
+
+  Desktop is unchanged: lg:grid-cols-5, every card spanning one column.
+#}
+<div class="grid grid-cols-1 gap-4 min-[360px]:grid-cols-6 lg:grid-cols-5 mb-6">
+  {{ stat_card(label="Assets",      value=asset_total|money_compact,     value_title=asset_total|money,     delta=asset_count|string ~ " asset" ~ ("s" if asset_count != 1 else ""), class_="min-[360px]:col-span-6 lg:col-span-1") }}
+  {# "unpaid" rather than "N liabilities": the old text merely repeated the
+     label, while the route sums these with `WHERE status != 'Paid'`. Saying
+     "unpaid" here keeps the label short for mobile without the card silently
+     claiming to cover paid liabilities too. See routes/dashboard.py. #}
+  {{ stat_card(label="Liabilities", value=liability_total|money_compact, value_title=liability_total|money, delta=liability_count|string ~ " unpaid", class_="min-[360px]:col-span-6 lg:col-span-1") }}
+  {{ stat_card(label="Timeline",    value=event_count|number,      class_="min-[360px]:col-span-3 lg:col-span-1") }}
+  {{ stat_card(label="Documents",   value=document_count|number,   class_="min-[360px]:col-span-3 lg:col-span-1") }}
+  {{ stat_card(label="Tasks",       value=open_task_count|number,  class_="min-[360px]:col-span-6 lg:col-span-1") }}
 </div>
 
 {#

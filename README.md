@@ -5,8 +5,7 @@ liquidators managing an estate. Combines a simple asset/liability ledger, a
 timeline/CRM, and a document RAG system so you can chat with an LLM that
 knows every document in the estate file.
 
-See [`Estate_Copilot_PRD.md`](Estate_Copilot_PRD.md) for the full product
-requirements.
+See [`PRD.md`](PRD.md) for the full product requirements.
 
 ---
 
@@ -22,7 +21,7 @@ requirements.
 | Document parsing | [Docling](https://github.com/docling-project/docling) — preserves table structure as Markdown |
 | Embeddings | [fastembed](https://github.com/qdrant/fastembed) `BAAI/bge-small-en-v1.5`, 384-dim, ONNX Runtime (no PyTorch), fully local/offline |
 | LLM | Any OpenAI-compatible `/v1/chat/completions` endpoint via raw `requests` — Ollama, LM Studio, OpenRouter, OpenAI |
-| Auth | Single-user session auth, password from `.env` |
+| Auth | Email+password session auth, `admin`/`viewer` roles, `/app/users` admin management |
 
 No React. No TypeScript. No ORM. No blueprints. No LangChain. Server-side
 rendered, always.
@@ -37,9 +36,9 @@ venv\Scripts\activate            # Windows
 pip install -r requirements.txt
 
 copy .env.example .env
-# edit .env and set LIQUIDATOR_PASSWORD
+# edit .env and set ADMIN_EMAIL / LIQUIDATOR_PASSWORD
 
-flask --app wsgi init-db         # create tables
+flask --app wsgi init-db         # create tables + bootstrap first admin user
 flask --app wsgi verify-vec      # confirm sqlite-vec works (optional)
 
 python app.py                    # start the dev server (debug mode)
@@ -53,6 +52,12 @@ proxy container can reach the Flask app on the host.
 
 `init-db` and `verify-vec` are CLI-only commands, run via `flask --app
 wsgi`. Day-to-day, just use `python app.py` to start the server.
+
+`init-db` bootstraps exactly one `admin` user from `ADMIN_EMAIL` /
+`LIQUIDATOR_PASSWORD`, but only if the `users` table is empty. After that,
+admins manage users (add/edit role/delete) from `/app/users` — no CLI
+needed. Roles are `admin` (full read/write) and `viewer` (read-only,
+including chat).
 
 ### Gunicorn and scanned PDFs
 
@@ -74,9 +79,11 @@ an Internal Server Error while Docling is still processing the document.
 | `/app/assets` | Asset ledger (list / detail / create / edit / delete) |
 | `/app/liabilities` | Liability ledger |
 | `/app/events` | Timeline / CRM log |
+| `/app/tasks` | Personal executor to-do list (due date, priority, status) |
 | `/app/documents` | Upload PDFs, monitor ingestion status |
-| `/app/chat` | Ask questions about ingested documents (RAG) |
+| `/app/chat` | Ask questions about ingested documents and tasks/timeline (RAG) |
 | `/app/settings` | Configure LLM provider (base URL, model, API key) |
+| `/app/users` | Manage users and roles (admin only) |
 
 ---
 
@@ -85,20 +92,23 @@ an Internal Server Error while Docling is still processing the document.
 ```
 app/
   __init__.py            create_app() factory, global auth guard
-  auth.py                session-based single-user auth
+  auth.py                session auth (login_required / admin_required), admin & viewer roles
   config.py               reads .env
   db.py                   SQLite connection + sqlite-vec extension loading
   commands.py             flask init-db / flask verify-vec
   ingestion.py            Docling -> chunk -> embed -> sqlite-vec pipeline
   llm.py                  raw-requests client for OpenAI-compatible providers
+  photo_storage.py        asset/liability reference photo upload, storage, serving
   routes/
     public.py             /  /login  /logout
     dashboard.py           /app/dashboard  /app/settings
     assets.py              /app/assets/*
     liabilities.py         /app/liabilities/*
     events.py               /app/events/*
+    tasks.py                 /app/tasks/* (personal to-do CRUD)
     documents.py             /app/documents/* (upload, list, delete, reindex)
     chat.py                  /app/chat (RAG question answering)
+    users.py                 /app/users/* (admin-only user management)
   templates/
     basecoat/              Vendored Basecoat Jinja macros
     components/            Reusable Jinja macros (page_header, data_table, etc.)
@@ -130,9 +140,9 @@ Plain `sqlite3` (stdlib), no ORM. Schema lives in `app/commands.py` under
 flask --app wsgi init-db
 ```
 
-Tables: `assets`, `liabilities`, `events`, `documents`, `settings`,
-plus `doc_chunks` (a `sqlite-vec` virtual table, 384-dim embeddings) and
-`doc_chunk_meta` for the RAG pipeline.
+Tables: `users`, `assets`, `liabilities`, `events`, `tasks`, `documents`,
+`settings`, plus `doc_chunks` (a `sqlite-vec` virtual table, 384-dim
+embeddings) and `doc_chunk_meta` for the RAG pipeline.
 
 ---
 
@@ -179,6 +189,29 @@ change the three fields in Settings, no code changes needed.
 
 ---
 
+## Tasks
+
+`/app/tasks` is a personal to-do list for the signed-in user (title, due
+date, priority, status, notes) with a one-click complete/reopen toggle.
+Open tasks and the soonest-due ones surface as a dashboard widget, and
+`/app/chat` keyword-searches task titles/notes alongside the timeline so
+the RAG agent can answer questions like "what do I still need to do this
+week?"
+
+---
+
+## Ledger Photos & PWA
+
+Assets and liabilities can each carry one replaceable reference photo,
+handled by `app/photo_storage.py` — stored on the local filesystem, kept
+separate from the document RAG pipeline (never sent to Docling, embeddings,
+or `sqlite-vec`).
+
+The app is installable as a PWA (`app/static/manifest.webmanifest` +
+`app/static/icons/`) for quick access from a phone or desktop home screen.
+
+---
+
 ## Adding a New Page
 
 1. Add a route file in `app/routes/your_thing.py` with a `register(app)` function.
@@ -203,9 +236,11 @@ npm run build:css
 
 ## Roadmap
 
-See `Estate_Copilot_PRD.md` section 6. Done: ledger CRUD (assets,
-liabilities, events), document upload + Docling → sqlite-vec ingestion,
-LLM chat agent with source traceability, Settings hub for LLM config.
+See `PRD.md` section 7 for the full status. Done: ledger CRUD (assets,
+liabilities, events), personal task tracking, document upload + Docling →
+sqlite-vec ingestion, LLM chat agent with source traceability over
+documents/timeline/tasks, multi-user admin/viewer auth, ledger photos, PWA
+install support, Settings hub for LLM config.
 
 Next: linking document uploads directly to ledger entries (so a bill
 attached to a liability auto-tags its chunks), background ingestion so

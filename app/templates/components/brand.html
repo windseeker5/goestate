@@ -1,0 +1,46 @@
+{#
+  Brand mark: the "GO" square that stands in for the app icon.
+
+  This exists because the same markup used to be hand-copied into the landing
+  nav, the login hero, and the sidebar header — and the copies drifted on every
+  axis. The landing page ended up reading "E" while everything else, including
+  favicon.ico, apple-touch-icon.png, brand-go.svg and every PWA icon in
+  manifest.webmanifest, read "GO". One definition here, three call sites.
+
+  Rendered as text on theme tokens rather than embedding static/icons/brand-go.svg
+  on purpose: that SVG hardcodes #111111 on #ffffff, so it would stay
+  dark-on-light in dark mode, where --primary inverts to near-white.
+
+  Not to be confused with the user avatar in the sidebar footer — that one is
+  rounded-full and shows the signed-in user's initials.
+
+  Usage:
+    {% from "components/brand.html" import brand_mark %}
+    {{ brand_mark() }}        (sidebar)
+    {{ brand_mark("sm") }}    (landing nav)
+    {{ brand_mark("lg") }}    (login hero)
+
+  Params:
+    size {string} "sm" | "md" | "lg". Default "md". Only the square's dimensions
+                  and font size vary — colour, radius and letters are fixed so
+                  the mark stays recognisably the same object everywhere.
+#}
+{% macro brand_mark(size="md") %}
+{% set sizes = {
+  "sm": "size-7 text-xs",
+  "md": "size-8 text-sm",
+  "lg": "size-10 text-lg"
+} %}
+{#
+  shrink-0 is required by the sidebar, where the mark sits in a flex row beside
+  a truncated wordmark and would otherwise be squashed. Harmless elsewhere.
+
+  aria-hidden because "Estate Copilot" is always rendered right next to or below
+  this mark at every call site — without it a screen reader reads out a bare
+  "GO" before the actual name.
+#}
+<div
+  class="flex shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold {{ sizes.get(size, sizes['md']) }}"
+  aria-hidden="true"
+>GO</div>
+{% endmacro %}

@@ -35,6 +35,13 @@ def create_app(config_object=DevConfig):
         )
         return Markup(clean_html)
 
+    # One policy for every figure in the app — see app/formatting.py.
+    from app.formatting import money, money_compact, number
+
+    app.add_template_filter(money, "money")
+    app.add_template_filter(money_compact, "money_compact")
+    app.add_template_filter(number, "number")
+
     @app.template_global()
     def asset_version(static_relative_path):
         """Return a static file's last-modified time, for cache-busting.

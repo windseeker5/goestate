@@ -1,5 +1,8 @@
 {% extends "layouts/base.html" %}
 {% from "basecoat/sidebar.html.jinja" import sidebar %}
+{% from "components/bottom_nav.html" import bottom_nav %}
+{% from "components/theme_switch.html" import theme_switch %}
+{% from "components/brand.html" import brand_mark %}
 
 {% block body %}
 {# Sidebar #}
@@ -23,13 +26,22 @@
   ]}
 ] %}
 
+{# The mobile bottom tab bar surfaces the four daily-use destinations; the
+   rest (Assets, Liabilities, Documents, Settings) stay one tap away behind
+   "More", which opens this same sidebar drawer. Selecting them out of
+   nav_items by label reuses the icons and `current` predicates defined above
+   instead of duplicating them, so the two navs can't drift apart. Reorder
+   tab_labels to promote a different destination. #}
+{% set tab_labels = ["Dashboard", "Tasks", "Timeline", "Chat"] %}
+{% set tab_items = nav_items[0]["items"] | selectattr("label", "in", tab_labels) | list %}
+
 {# Sidebar header: logo + app name, plus a mobile-only close button so the
    open drawer has an explicit, visible way to dismiss it (not just tapping
    the scrim). Hidden on desktop since the sidebar is pinned open there. #}
 {% set sidebar_header %}
 <div class="flex items-center justify-between gap-2 px-2 py-1">
   <a href="{{ url_for('dashboard') }}" class="flex items-center gap-2 min-w-0 no-underline hover:opacity-80 transition-opacity" data-keep-mobile-sidebar-open>
-    <div class="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold text-sm">GO</div>
+    {{ brand_mark() }}
     <span class="font-semibold text-sm truncate text-foreground">Estate Copilot</span>
   </a>
   <button
@@ -43,13 +55,23 @@
 </div>
 {% endset %}
 
-{# Sidebar footer: avatar + name + theme toggle + sign out, all on one row #}
+{# Sidebar footer: Appearance control, then avatar + name + sign out.
+
+   Appearance lives here rather than on /app/settings because that route is
+   @admin_required, and the theme is a per-device preference every role needs —
+   a viewer would otherwise never be able to change it. On mobile this footer is
+   one tap away via the bottom nav's "More".
+
+   It replaces the icon-only moon button that used to sit next to the avatar:
+   that was unlabelled, and being a plain toggle it could only ever swap
+   light/dark, permanently losing the ability to follow the phone's own setting. #}
 {% set sidebar_footer %}
 {% if g.user %}
 {% set display_name = g.user.name if g.user.name else g.user.email.split("@")[0] %}
 {% set name_parts = display_name.split(" ") %}
 {% set initials = (name_parts[0][0] ~ (name_parts[1][0] if name_parts|length > 1 else "")) | upper %}
-<div class="flex items-center gap-2 px-2">
+{{ theme_switch() }}
+<div class="mt-2 flex items-center gap-2 px-2">
   <div class="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold text-xs" title="{{ g.user.email }}">
     {{ initials }}
   </div>
@@ -58,21 +80,6 @@
     <p class="text-xs text-muted-foreground">{{ "Admin" if g.user.role == "admin" else "Viewer" }}</p>
   </div>
   <div class="flex items-center gap-0.5 shrink-0">
-    <button
-      type="button"
-      aria-label="Toggle dark mode"
-      data-tooltip="Toggle dark mode"
-      data-side="top"
-      onclick="window.basecoat.theme.toggle()"
-      class="btn" data-variant="ghost" data-size="icon-sm"
-    >
-      <span class="hidden dark:block">
-        <svg class="lucide lucide-sun size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
-      </span>
-      <span class="block dark:hidden">
-        <svg class="lucide lucide-moon size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
-      </span>
-    </button>
     <a href="{{ url_for('logout') }}" class="btn" data-variant="ghost" data-size="icon-sm" aria-label="Sign out" data-tooltip="Sign out" data-side="top">
       <svg class="lucide lucide-log-out size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
     </a>
@@ -85,34 +92,31 @@
 
 {# Main content area #}
 <main>
-  {# Top header bar: mobile-only. Desktop has the sidebar always visible and
-     each page's own page_header title, so this bar would just be an empty
-     redundant strip on desktop — hide it there entirely.
-     IMPORTANT: uses md:hidden (768px), not lg:hidden (1024px). Basecoat's
-     sidebar JS switches from mobile-overlay to pinned-desktop mode at 768px
-     (its own hardcoded default breakpoint — see basecoat.all.min.js). If
-     this bar used a different breakpoint than the sidebar, there's a dead
-     zone (768px–1024px here) where the sidebar is already pinned open but
-     this "mobile" bar is still showing too, which is what caused the
-     layout to look broken/non-fluid when resizing. Keep these in sync. #}
-  <header class="md:hidden flex h-14 items-center gap-3 border-b px-4">
-    <button
-      type="button"
-      class="btn" data-variant="ghost" data-size="icon"
-      aria-label="Open sidebar"
-      onclick="document.querySelector('.sidebar')?.toggle()"
-    >
-      <svg class="lucide lucide-menu size-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
-    </button>
-  </header>
+  {# There used to be a mobile-only top header here whose entire contents were
+     one hamburger button — 56px of vertical space on the most space-starved
+     screen, spent on a control the bottom tab bar's "More" now provides in the
+     thumb zone. Each page already renders its own title via
+     components/page_header.html, so nothing else was lost by dropping it. #}
 
   {# Page content. max-w-7xl keeps tables/forms readable on ultrawide
      monitors instead of stretching edge-to-edge; mx-auto centers it once
-     the viewport exceeds that width. #}
-  <div class="p-4 md:p-6">
+     the viewport exceeds that width.
+     pb-24 on mobile clears the fixed bottom tab bar (56px + safe area) so the
+     end of a long page is never trapped underneath it. #}
+  <div class="p-4 pb-24 md:p-6 md:pb-6">
     <div class="mx-auto w-full max-w-7xl">
       {% block content %}{% endblock %}
     </div>
   </div>
 </main>
+
+{# Mobile thumb-zone navigation. Hidden at md+ where the sidebar is pinned.
+   IMPORTANT: uses md: (768px), not lg: (1024px). Basecoat's sidebar JS
+   switches from mobile-overlay to pinned-desktop mode at 768px (its own
+   hardcoded default breakpoint — see basecoat.all.min.js). If this bar used a
+   different breakpoint than the sidebar, there's a dead zone (768px–1024px)
+   where the sidebar is already pinned open but this "mobile" bar still shows
+   too, which previously made the layout look broken when resizing. Keep in
+   sync with the breakpoint in static/css/input.css's density block. #}
+{{ bottom_nav(items=tab_items) }}
 {% endblock %}

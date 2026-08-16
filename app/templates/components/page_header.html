@@ -9,8 +9,12 @@
     title       {string} Page title (h1).
     description {string} Optional subtext under the title.
     action      {string} Optional raw HTML for the right-aligned action(s).
+    action_class {string} Optional extra classes on the action wrapper. The
+                wrapper is shrink-to-fit, so a `w-full` button inside it will
+                not actually stretch — pass "w-full sm:w-auto" here as well as
+                on the button to get a full-width action on mobile.
 #}
-{% macro page_header(title, description=None, action=None) %}
+{% macro page_header(title, description=None, action=None, action_class="") %}
 {#
   Uses flex-wrap instead of a viewport-width breakpoint (sm:flex-row) on
   purpose: the sidebar applies a fixed margin to the content column, so the
@@ -25,7 +29,7 @@
     {% if description %}<p class="text-muted-foreground text-sm mt-1">{{ description }}</p>{% endif %}
   </div>
   {% if action %}
-  <div class="flex items-center gap-2 flex-wrap">
+  <div class="flex items-center gap-2 flex-wrap {{ action_class }}">
     {{ action | safe }}
   </div>
   {% endif %}

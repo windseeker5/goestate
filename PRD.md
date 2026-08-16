@@ -57,6 +57,17 @@ A dedicated interface ensuring the application remains flexible and private.
     *   Allows bulk uploading of historical estate PDFs that are not tied to a specific new ledger entry.
     *   Options to re-index or delete vectors.
 
+### 4.5. Task Tracking
+A personal to-do list for the signed-in executor, separate from the estate-wide timeline.
+*   **Fields:** Title, due date, priority (Low/Medium/High), status (Open/In Progress/Done/Cancelled), free-text notes.
+*   **Quick actions:** One-click toggle to mark a task complete/reopen it, without opening the full edit form.
+*   **Dashboard visibility:** An open-task count and an "upcoming tasks" widget (soonest due date first) surface on the dashboard.
+*   **Chat integration:** The LLM Chat Agent (Section 4.3) keyword-searches the signed-in user's task titles/notes alongside the timeline, so questions like "what's still open this week?" pull from both.
+*   **Scope:** Tasks are private to the user who created them, regardless of role.
+
+### 4.6. User Management
+Email + password authentication with two roles: `admin` (full read/write everywhere, manages users) and `viewer` (read-only, including chat). The first admin is bootstrapped from `.env` on `flask init-db`; subsequent users are created and managed by admins from a dedicated Settings-adjacent page — no CLI needed after initial setup.
+
 ## 5. Non-Functional Requirements
 *   **Performance:** UI interactions and database saves should be near-instantaneous. Document parsing (Docling) may take a few seconds but should not block the main UI thread.
 *   **Security & Privacy:** Because estate data contains highly sensitive PII (Social Insurance Numbers, banking details), the system must be completely local-first. Vector data must never leave the machine unless the user explicitly configures a cloud LLM provider.
@@ -73,8 +84,11 @@ A dedicated interface ensuring the application remains flexible and private.
     *   Database schema (Section 6.1) — `assets`, `liabilities`, `events`, `documents`, `settings`, plus `doc_chunks`/`doc_chunk_meta` for vectors.
     *   Ledger CRUD — Assets, Liabilities, Timeline (Section 4.1), server-rendered with search/filter/sort/pagination.
     *   Docling → chunk → embed → sqlite-vec ingestion pipeline (Section 4.2), synchronous on upload.
-    *   LLM Chat Agent (Section 4.3) with source-chunk traceability, tested end-to-end against a local Ollama model.
+    *   LLM Chat Agent (Section 4.3) with source-chunk traceability, tested end-to-end against a local Ollama model; retrieval also covers keyword search over the timeline and, as of Section 4.5, tasks.
     *   Settings Hub LLM configuration (Section 4.4) — base URL / API key / model name, tested with Ollama.
+    *   Task Tracking (Section 4.5) — full CRUD, dashboard KPI/widget, and chat search integration.
+    *   User Management (Section 4.6) — multi-user email/password auth with admin/viewer roles, `/app/users` admin CRUD.
+    *   PWA install support (manifest + icons) for home-screen/desktop installation.
 *   **Not yet done:**
     *   Attaching documents directly to a specific ledger entry (Section 4.1 "Integration" and 4.2 step 5 — `linked_entity_type`/`linked_entity_id` columns exist in the schema but nothing in the UI sets them yet; all uploads today are unlinked/standalone).
     *   Knowledge Base Manager bulk upload / re-index / delete UI (Section 4.4) — basic per-document upload, re-index, and delete exist on the Documents page, but there's no dedicated bulk-upload flow yet.

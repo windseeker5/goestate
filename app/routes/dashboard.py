@@ -49,9 +49,12 @@ def register(app):
         return render_template(
             "blocks/dashboard.html",
             asset_count=asset_count,
-            asset_total=f"${asset_total:,.2f}",
+            # Raw floats — the template applies the |money / |money_compact
+            # filters, so display rules live in one place (app/formatting.py)
+            # rather than being split between here and the list templates.
+            asset_total=asset_total,
             liability_count=liability_count,
-            liability_total=f"${liability_total:,.2f}",
+            liability_total=liability_total,
             event_count=event_count,
             document_count=document_count,
             recent_events=recent_events,

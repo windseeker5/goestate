@@ -30,7 +30,7 @@
       <dl class="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
         <div>
           <dt class="text-xs text-muted-foreground uppercase tracking-wide">Amount</dt>
-          <dd class="mt-1 font-medium">{{ "$%.2f"|format(item.amount) if item.amount else "—" }}</dd>
+          <dd class="mt-1 font-medium tabular-nums">{{ item.amount|money(zero_blank=true) }}</dd>
         </div>
         <div>
           <dt class="text-xs text-muted-foreground uppercase tracking-wide">Due Date</dt>

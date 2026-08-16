@@ -1,0 +1,72 @@
+{#
+  Mobile bottom tab bar (thumb-zone navigation).
+
+  Replaces the top hamburger as the primary way to move around the app on a
+  phone. Nav used to be two taps to anywhere, behind a drawer anchored at the
+  top of a tall screen — the hardest spot to reach one-handed. This puts the
+  daily destinations one tap away in the bottom third of the screen, the way
+  native apps do it.
+
+  Hidden at md+ (768px), matching Basecoat's hardcoded sidebar breakpoint —
+  above that the sidebar is pinned open and this bar would be redundant.
+  Keep that breakpoint in sync with layouts/app.html.
+
+  "More" toggles the existing sidebar drawer, so every destination that isn't
+  a tab (Assets, Liabilities, Documents, Settings) stays reachable — no nav
+  target is lost.
+
+  Usage:
+    {% from "components/bottom_nav.html" import bottom_nav %}
+    {{ bottom_nav(items=tab_items) }}
+
+  Params:
+    items {array} Up to 4 item dicts from the `nav_items` list in
+                  layouts/app.html — each with label / url / icon / current.
+                  Icons and `current` predicates are reused from there rather
+                  than duplicated here, so the two navs can't drift apart.
+#}
+{#
+  z-30, NOT z-40. Basecoat layers the open drawer as scrim 40 -> panel 50, but
+  the scrim's z-index makes .sidebar a stacking context, which traps the panel's
+  50 inside it. A z-40 bar here therefore ties with the scrim and — coming later
+  in the DOM — paints over the whole drawer, silently burying the Appearance
+  control and Sign out in its footer. Raising the panel cannot fix that; the bar
+  has to sit below the scrim. Nothing in the app occupies 30-40.
+  Layer order overall: bar 30 < scrim 40 < panel/popovers 50 < toasts 60.
+#}
+{% macro bottom_nav(items) %}
+<nav
+  aria-label="Primary"
+  class="md:hidden fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur
+         pb-[env(safe-area-inset-bottom,0px)]"
+>
+  <ul class="flex items-stretch">
+    {% for item in items %}
+    <li class="flex-1">
+      <a
+        href="{{ item.url }}"
+        {% if item.current %}aria-current="page"{% endif %}
+        class="flex min-h-14 flex-col items-center justify-center gap-1 px-1 py-2 no-underline
+               transition-colors [&_svg]:size-6 [&_svg]:shrink-0
+               {{ 'text-primary font-medium' if item.current else 'text-muted-foreground' }}"
+      >
+        {{ item.icon | safe }}
+        <span class="text-[0.8125rem] leading-none">{{ item.label }}</span>
+      </a>
+    </li>
+    {% endfor %}
+    <li class="flex-1">
+      <button
+        type="button"
+        aria-label="More navigation"
+        onclick="document.querySelector('.sidebar')?.toggle()"
+        class="flex w-full min-h-14 flex-col items-center justify-center gap-1 px-1 py-2
+               text-muted-foreground transition-colors [&_svg]:size-6 [&_svg]:shrink-0"
+      >
+        <svg class="lucide lucide-menu" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+        <span class="text-[0.8125rem] leading-none">More</span>
+      </button>
+    </li>
+  </ul>
+</nav>
+{% endmacro %}

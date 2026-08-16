@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#171717" media="(prefers-color-scheme: dark)" />
+  {# One theme-color, no media query. Media-scoped variants track the OS, so
+     they showed the wrong status-bar colour whenever the user explicitly chose
+     the opposite theme. The pre-paint script below sets this instead. #}
+  <meta name="theme-color" id="theme-color" content="#ffffff" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -17,14 +19,19 @@
   <link rel="icon" href="{{ url_for('static', filename='icons/favicon.ico') }}" sizes="any" />
   <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}" />
 
-  <!-- Prevent theme flash: apply saved theme before first paint (Basecoat convention) -->
+  <!-- Prevent theme flash: apply saved theme before first paint (Basecoat convention).
+       Runs before app.js loads, so it deliberately repeats the resolution logic
+       rather than calling window.estateTheme — keep the two in sync. A missing
+       themeMode key means "follow the system", which is what makes the
+       Appearance control's System option work. -->
   <script>
     (() => {
       try {
         const stored = localStorage.getItem("themeMode");
-        if (stored ? stored === "dark" : matchMedia("(prefers-color-scheme: dark)").matches) {
-          document.documentElement.classList.add("dark");
-        }
+        const dark = stored ? stored === "dark" : matchMedia("(prefers-color-scheme: dark)").matches;
+        if (dark) document.documentElement.classList.add("dark");
+        const meta = document.getElementById("theme-color");
+        if (meta) meta.setAttribute("content", dark ? "#171717" : "#ffffff");
       } catch (_) {}
     })();
   </script>

@@ -29,13 +29,41 @@
                   (right-aligned), since this is almost always the last
                   column in a table and should never overflow past the
                   right edge of the viewport.
+
+  The parameters below exist so this macro can also render a page-level
+  primary CTA, not just the row-level utility menus it was written for. They
+  all default to the row-action look, so existing call sites are unaffected.
+
+    variant       {string} Basecoat button variant. Default "outline" — the
+                  secondary treatment, correct for a row action. Pass
+                  "primary" for a page's main call to action.
+    size          {string} Basecoat button size. Default "sm".
+    icon          {string} Optional raw SVG placed before the label. Give it
+                  data-icon="inline-start" so Basecoat tightens the leading
+                  padding for it.
+    divider       {bool}   Thin rule between label and chevron. Default true.
+                  Pass false for a plain dropdown trigger: the divider is the
+                  split-button convention (label and chevron do different
+                  things), so it misleads when the whole button opens the menu.
+    class_        {string} Extra classes on the trigger, e.g. "w-full sm:w-auto".
+    wrapper_class {string} Extra classes on the .dropdown-menu element that
+                  wraps the trigger. Width classes need to be on BOTH this and
+                  class_: the wrapper is shrink-to-fit, so a `w-full` trigger
+                  inside a default wrapper still only reaches its own content
+                  width.
 #}
 {% from "basecoat/dropdown-menu.html.jinja" import dropdown_menu %}
-{% macro action_menu(id, items, label="Action", align="end") %}
+{% macro action_menu(id, items, label="Action", align="end",
+                     variant="outline", size="sm",
+                     icon=None, divider=true, class_="", wrapper_class="") %}
 {{ dropdown_menu(
   id=id,
-  trigger='<span>' ~ label ~ '</span><span class="w-px h-4 bg-border mx-1"></span><svg class="lucide lucide-chevron-down size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
-  trigger_attrs={"class": "btn", "data-variant": "outline", "data-size": "sm"},
+  main_attrs={"class": wrapper_class},
+  trigger=(icon if icon else '')
+    ~ '<span>' ~ label ~ '</span>'
+    ~ ('<span class="w-px h-4 bg-border mx-1"></span>' if divider else '')
+    ~ '<svg class="lucide lucide-chevron-down size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
+  trigger_attrs={"class": ("btn " ~ class_) | trim, "data-variant": variant, "data-size": size},
   popover_attrs={"data-align": align},
   items=items
 ) }}

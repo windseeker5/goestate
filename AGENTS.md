@@ -79,16 +79,21 @@ to work within this Flask/Jinja starter.
 ```
 app/
   __init__.py     create_app() factory, global auth guard (before_request)
-  auth.py         session-based single-user auth
+  auth.py         session auth, admin/viewer roles (login_required, admin_required)
   config.py       reads .env
   db.py           SQLite connection + sqlite-vec extension loading
   commands.py     flask init-db / flask verify-vec
+  photo_storage.py  asset/liability reference photo upload/storage/serving
   routes/
     public.py       /  /login  /logout
     dashboard.py     /app/dashboard  /app/settings
     assets.py        /app/assets/*
     liabilities.py   /app/liabilities/*
     events.py        /app/events/*
+    tasks.py         /app/tasks/*
+    documents.py     /app/documents/*
+    chat.py          /app/chat
+    users.py         /app/users/* (admin only)
   templates/
     layouts/      base.html | app.html | public.html
     components/   stat_card | page_header | data_table | pagination |
@@ -105,10 +110,11 @@ instance/          SQLite db + uploads (gitignored)
 ```
 
 **No blueprints.** Every file in `app/routes/` exposes a `register(app)`
-function that attaches routes with plain `@app.route`. This is a single-user
-local app — blueprint indirection isn't worth the complexity. `url_for()`
-calls use the route function name directly (e.g. `url_for("list_assets")`,
-not `url_for("assets.list_assets")`).
+function that attaches routes with plain `@app.route`. This is a small,
+locally hosted app — blueprint indirection isn't worth the complexity, even
+with multi-user admin/viewer auth. `url_for()` calls use the route function
+name directly (e.g. `url_for("list_assets")`, not
+`url_for("assets.list_assets")`).
 
 ---
 
@@ -179,8 +185,10 @@ To add a new page:
 
 - **Always test and validate your work** after every change. Never leave work unverified.
 - Use the **Playwright MCP** browser tool to test UI, routes, forms, and all behavior.
-- Login is password-only (single user). The password is whatever is set in
-   `.env` as `LIQUIDATOR_PASSWORD` — check that file for the current value.
+- Login is email + password, multi-user with `admin`/`viewer` roles. For
+   local testing, sign in as the address in `.env`'s `ADMIN_EMAIL` with the
+   password in `LIQUIDATOR_PASSWORD` — check that file for the current
+   values (the bootstrap admin created by `flask init-db`).
 - For the local test account, sign in as `kdresdell@gmail.com` with password
   `admin123` unless the developer gives different credentials.
 - Navigate to `http://127.0.0.1:5001` (or the configured `FLASK_RUN_PORT`) as the starting point.

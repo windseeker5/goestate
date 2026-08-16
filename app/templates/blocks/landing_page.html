@@ -1,4 +1,5 @@
 {% extends "layouts/public.html" %}
+{% from "components/brand.html" import brand_mark %}
 
 {% block title %}Estate Copilot{% endblock %}
 
@@ -8,15 +9,19 @@
 <nav class="sticky top-0 z-50 border-b bg-background/80 backdrop-blur">
   <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
     <div class="flex items-center gap-2">
-      <div class="flex size-7 items-center justify-center rounded-md bg-primary text-primary-foreground font-bold text-xs">E</div>
+      {{ brand_mark("sm") }}
       <span class="font-semibold text-sm">Estate Copilot</span>
     </div>
     <div class="flex items-center gap-2">
       <a href="{{ url_for('login') }}" class="btn" data-size="sm">Sign in</a>
       <button
         type="button"
+        {# Routed through estateTheme, not basecoat.theme.toggle(): both write
+           the same localStorage key, and Basecoat's version would store an
+           explicit value that the in-app Appearance control then reads as a
+           deliberate opt-out of "System". One writer only. #}
         aria-label="Toggle dark mode"
-        onclick="window.basecoat.theme.toggle()"
+        onclick="window.estateTheme.set(window.estateTheme.resolve(window.estateTheme.get()) === 'dark' ? 'light' : 'dark')"
         class="btn" data-variant="ghost" data-size="icon-sm"
       >
         <span class="hidden dark:block"><svg class="lucide lucide-sun size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg></span>

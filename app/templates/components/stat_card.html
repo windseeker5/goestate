@@ -8,23 +8,33 @@
   Params:
     label {string} Small label above the value.
     value {string} The big number/metric.
+    value_title {string} Optional hover text on the value. Use it whenever value
+                    is abbreviated (|money_compact) to keep the exact figure
+                    reachable — the tile shows "$1.25M", the tooltip
+                    "$1,250,000.00".
     delta {string} Optional change indicator text, e.g. "+12.5%".
     trend {string} "up" | "down" | "neutral" — controls delta color. Default "neutral".
     icon  {string} Optional raw SVG/HTML shown top-right.
+    class_ {string} Optional extra classes on the card — mainly grid column
+                    spans, so a stat grid can give cards different widths at
+                    different breakpoints.
 #}
-{% macro stat_card(label, value, delta=None, trend="neutral", icon=None) %}
+{% macro stat_card(label, value, delta=None, trend="neutral", icon=None, class_="", value_title=None) %}
 {% set trend_class = {
   "up": "text-green-600 dark:text-green-400",
   "down": "text-destructive",
   "neutral": "text-muted-foreground"
 }[trend] %}
-<div class="card">
+<div class="card {{ class_ }}">
   <header class="flex flex-row items-center justify-between space-y-0 pb-2">
     <p class="text-sm font-medium text-muted-foreground">{{ label }}</p>
     {% if icon %}<div class="text-muted-foreground">{{ icon | safe }}</div>{% endif %}
   </header>
   <section>
-    <p class="text-2xl font-bold">{{ value }}</p>
+    {# break-words is a guard, not decoration: .card clips overflow, so an
+       unusually long value (a large currency total in a narrow column) would
+       otherwise be silently truncated rather than wrapped. #}
+    <p class="text-2xl font-bold break-words tabular-nums"{% if value_title %} title="{{ value_title }}"{% endif %}>{{ value }}</p>
     {% if delta %}
     <p class="text-xs {{ trend_class }} mt-1">{{ delta }}</p>
     {% endif %}

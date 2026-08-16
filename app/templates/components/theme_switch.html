@@ -1,0 +1,44 @@
+{#
+  Appearance control: a Light / Dark / System segmented radio group.
+
+  Why native radios rather than styled buttons: a single-choice control gets
+  correct arrow-key navigation and screen-reader semantics for free from a
+  fieldset + radio group. Hand-rolled aria-pressed buttons would need JS to
+  reimplement both. The inputs are visually hidden (sr-only) but still focusable,
+  and Tailwind's has-[:checked]: variant paints the selected state straight from
+  the input, so no JS is involved in the appearance at all.
+
+  The inputs render unchecked: the value lives in localStorage, which the server
+  cannot see. window.estateTheme (static/js/app.js) ticks the right one on load
+  and listens for changes — it is the only thing that may write the stored value.
+
+  Usage:
+    {% from "components/theme_switch.html" import theme_switch %}
+    {{ theme_switch() }}
+#}
+{% macro theme_switch() %}
+{% set options = [
+  {"value": "light",  "label": "Light",  "icon": '<svg class="lucide lucide-sun size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>'},
+  {"value": "dark",   "label": "Dark",   "icon": '<svg class="lucide lucide-moon size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>'},
+  {"value": "system", "label": "System", "icon": '<svg class="lucide lucide-monitor size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>'}
+] %}
+<fieldset class="w-full px-2">
+  <legend class="mb-1.5 text-xs font-medium text-muted-foreground">Appearance</legend>
+  <div class="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1">
+    {% for opt in options %}
+    {# min-h-12 keeps each option on the 48px touch floor: the mobile density
+       block in input.css raises .btn and menu rows, but not bare labels. #}
+    <label
+      class="flex min-h-12 cursor-pointer flex-col items-center justify-center gap-1 rounded-md
+             px-1 py-2 text-xs font-medium text-muted-foreground transition-colors
+             has-[:checked]:bg-background has-[:checked]:text-foreground has-[:checked]:shadow-sm
+             has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring"
+    >
+      <input type="radio" name="theme-mode" value="{{ opt.value }}" class="sr-only" />
+      {{ opt.icon | safe }}
+      <span>{{ opt.label }}</span>
+    </label>
+    {% endfor %}
+  </div>
+</fieldset>
+{% endmacro %}
