@@ -5,23 +5,28 @@
     {% from "components/search_filter.html" import search_filter %}
     {{ search_filter(action="/app/customers", q=q, filters=[
         {"name": "status", "label": "Status", "options": [("", "All"), ("active", "Active"), ("inactive", "Inactive")], "value": status}
-    ]) }}
+    ], show_submit=false) }}
+
+  Params:
+    action       {string}  GET form action.
+    q            {string}  Current search value.
+    filters      {list}    Select filters with name/options/value keys.
+    show_submit  {bool}    Show an explicit submit button. Default false.
+    submit_label {string}  Submit button text. Default "Search".
+    class_       {string}  Additional form classes.
 #}
 {% from "basecoat/select.html.jinja" import select %}
-{% macro search_filter(action, q="", filters=[]) %}
+{% macro search_filter(action, q="", filters=[], show_submit=false, submit_label="Search", class_="") %}
 {#
   flex-wrap (not a sm:flex-row breakpoint) so this reflows based on actual
   available width next to the sidebar, not raw viewport width — see the
   comment in components/page_header.html for why that distinction matters.
 
-  No submit button on purpose: pressing Enter in the search input submits
-  the form natively (standard <form> behavior with a single text input),
-  and the filter <select> already auto-submits on change via its onchange
-  handler below. A dedicated "Search" button is redundant UI — this is a
-  site-wide rule, not specific to this one page.
+  Consumers may hide the submit button when Enter-to-search is established
+  UI behavior. Filter selects always auto-submit on change.
 #}
-<form method="get" action="{{ action }}" class="flex flex-wrap items-center gap-3 mb-4">
-  <div class="relative flex-1 min-w-[200px]">
+<form method="get" action="{{ action }}" class="flex flex-wrap items-center gap-3 mb-4 {{ class_ }}">
+  <div class="relative basis-full flex-1 min-w-0 sm:basis-auto sm:min-w-[200px]">
     <svg class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none lucide lucide-search" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
     <input
       class="input pl-9 w-full"
@@ -39,8 +44,9 @@
     name=f.name,
     selected=f.value,
     items=filter_items,
-    main_attrs={"class": "w-auto", "onchange": "this.closest('form').submit()"}
+    main_attrs={"class": "w-full sm:w-auto", "onchange": "this.closest('form').submit()"}
   ) }}
   {% endfor %}
+  {% if show_submit %}<button type="submit" class="btn" data-variant="secondary">{{ submit_label }}</button>{% endif %}
 </form>
 {% endmacro %}

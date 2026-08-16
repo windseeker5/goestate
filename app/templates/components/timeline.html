@@ -31,16 +31,16 @@
     {# Dot #}
     <span class="relative z-10 mt-1.5 size-[15px] shrink-0 rounded-full border-2 border-primary bg-background"></span>
     {# Content #}
-    <div class="flex-1 -mt-0.5">
+    <div class="min-w-0 flex-1 -mt-0.5">
       <div class="flex flex-wrap items-center gap-2">
-        <p class="text-sm font-medium">{{ item.title }}</p>
+        <p class="text-sm font-medium break-words">{{ item.title }}</p>
         {% if item.badge %}
         <span class="badge" {% if item.badge_variant %}data-variant="{{ item.badge_variant }}"{% endif %}>{{ item.badge }}</span>
         {% endif %}
       </div>
       <p class="text-xs text-muted-foreground mt-0.5">{{ item.date }}</p>
       {% if item.description %}
-      <p class="text-sm text-muted-foreground mt-1.5">{{ item.description }}</p>
+      <p class="text-sm text-muted-foreground mt-1.5 break-words">{{ item.description }}</p>
       {% endif %}
     </div>
   </div>

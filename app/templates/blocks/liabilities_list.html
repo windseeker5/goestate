@@ -1,7 +1,7 @@
 {% extends "layouts/app.html" %}
 {% from "components/page_header.html"   import page_header %}
 {% from "components/search_filter.html" import search_filter %}
-{% from "components/data_table.html"    import data_table %}
+{% from "components/data_table.html"    import data_table, table_cell %}
 {% from "components/pagination.html"    import pagination %}
 {% from "components/action_menu.html"   import action_menu %}
 
@@ -18,36 +18,29 @@
 
 {{ search_filter(
   action=url_for("list_liabilities"),
-  q=q,
-  filters=[
-    {
-      "name": "status",
-      "options": [("", "All statuses"), ("Unpaid", "Unpaid"), ("Paid", "Paid"), ("Disputed", "Disputed"), ("Cancelled", "Cancelled")],
-      "value": status
-    }
-  ]
+  q=q
 ) }}
 
 <p class="text-sm text-muted-foreground mb-3">{{ total }} record{{ "s" if total != 1 else "" }}</p>
 
 {% set columns = [
-  {"key": "due_date", "label": "Due Date", "sortable": true},
+  {"key": "due_date", "label": "Due Date", "sortable": true, "class_": "w-28"},
   {"key": "creditor", "label": "Creditor", "sortable": true},
-  {"key": "amount",   "label": "Amount",   "sortable": true, "align": "end"},
-  {"key": "status",   "label": "Status",   "sortable": false},
-  {"key": "_actions", "label": "",         "sortable": false, "align": "end"}
+  {"key": "amount",   "label": "Amount",   "sortable": true, "align": "end", "class_": "w-28"},
+  {"key": "status",   "label": "Status",   "sortable": false, "class_": "w-28"},
+  {"key": "_actions", "label": "",         "sortable": false, "align": "end", "class_": "w-28"}
 ] %}
 
-{% call(row) data_table(columns=columns, rows=liabilities, sort=sort, order=order, base_url=url_for("list_liabilities"), scrollable=false) %}
-  <td class="text-muted-foreground">{{ row.due_date or "—" }}</td>
-  <td class="font-medium">{{ row.creditor }}</td>
-  <td class="text-end">{{ "$%.2f"|format(row.amount) if row.amount else "—" }}</td>
-  <td>
+{% call(row) data_table(columns=columns, rows=liabilities, sort=sort, order=order, base_url=url_for("list_liabilities"), responsive=true) %}
+  {% call table_cell("Due date", numeric=true, class_="text-muted-foreground") %}{{ row.due_date or "—" }}{% endcall %}
+  {% call table_cell("Creditor", primary=true, summary=true, summary_title=row.creditor, class_="font-medium") %}{{ row.creditor }}{% endcall %}
+  {% call table_cell("Amount", numeric=true, class_="text-end") %}{{ "$%.2f"|format(row.amount) if row.amount else "—" }}{% endcall %}
+  {% call table_cell("Status") %}
     <span class="badge" data-variant="{{ 'secondary' if row.status in ('Paid', 'Cancelled') else 'outline' }}">
       {{ row.status }}
     </span>
-  </td>
-  <td class="text-end">
+  {% endcall %}
+  {% call table_cell("Actions", action=true, class_="text-end") %}
     {% set row_actions = [
       {"label": "View", "url": url_for('detail_liability', item_id=row.id)}
     ] %}
@@ -61,14 +54,14 @@
     {% endif %}
     <form id="delete-form-{{ row.id }}" method="post" action="{{ url_for('delete_liability', item_id=row.id) }}" class="hidden"></form>
     {{ action_menu(id="liability-actions-" ~ row.id, items=row_actions) }}
-  </td>
+  {% endcall %}
 {% endcall %}
 
 {{ pagination(
   page=page,
   total_pages=total_pages,
   base_url=url_for("list_liabilities"),
-  extra_params={"q": q, "status": status, "sort": sort, "order": order}
+  extra_params={"q": q, "sort": sort, "order": order}
 ) }}
 
 {% endblock %}

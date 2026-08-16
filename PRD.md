@@ -80,3 +80,7 @@ A dedicated interface ensuring the application remains flexible and private.
     *   Knowledge Base Manager bulk upload / re-index / delete UI (Section 4.4) — basic per-document upload, re-index, and delete exist on the Documents page, but there's no dedicated bulk-upload flow yet.
     *   Background ingestion so large PDFs don't block the request (Section 5, Performance) — ingestion currently runs synchronously in the request; acceptable for the single-PDF, few-seconds case tested so far, but not yet validated against large or complex scanned documents.
     *   Testing against real-world scanned/complex PDFs (multi-page, low-quality scans, mixed layouts) — validated so far only against one clean, digitally-generated test PDF with a simple table.
+
+### 7.1 Ledger Photos
+
+Assets and liabilities may each have one replaceable reference photo. These images are private ledger evidence, stored on the local filesystem with only their relative path and MIME type in regular SQLite columns. They are deliberately separate from knowledge-base documents and never enter Docling, embeddings, or `sqlite-vec`.

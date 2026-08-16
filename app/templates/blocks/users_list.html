@@ -13,42 +13,30 @@
   action='<a href="' ~ url_for("new_user") ~ '" class="btn"><svg data-icon="inline-start" class="lucide lucide-plus" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add user</a>'
 ) }}
 
-{#
-  rounded-lg border + bg-background: matches the bordered look every
-  component gets in the UI Gallery demo (see components/data_table.html
-  for the full rationale, which this page mirrors since it also hand-rolls
-  its own <table> instead of using that shared component).
-
-  overflow-x-visible, not .table-container/overflow-hidden: this table has
-  a per-row Action dropdown, and Basecoat's popover components hide their
-  closed state with opacity:0 (not display:none), so a scrollable/clipped
-  ancestor would clip them the instant they open. See the note in
-  components/data_table.html for the full explanation.
-#}
-<div class="rounded-lg border bg-background overflow-x-visible">
-  <table class="table">
+<div class="responsive-table rounded-lg border bg-background">
+  <table class="table table-fixed">
     <thead>
       <tr>
-        <th>Added</th>
+        <th class="w-28">Added</th>
         <th>Name</th>
         <th>Email</th>
-        <th>Role</th>
-        <th class="text-end"></th>
+        <th class="w-24">Role</th>
+        <th class="w-28 text-end"></th>
       </tr>
     </thead>
     <tbody>
       {% for u in users %}
       <tr>
-        <td class="text-muted-foreground">{{ u.created_at.split("T")[0] if u.created_at else "—" }}</td>
-        <td class="font-medium">
-          {{ u.name or "—" }}
+        <td data-label="Added" class="text-muted-foreground">{{ u.created_at.split("T")[0] if u.created_at else "—" }}</td>
+        <td data-label="Name" data-cell-primary class="font-medium">
+          <span class="table-cell-summary" title="{{ u.name or '—' }}">{{ u.name or "—" }}</span>
           {% if u.id == g.user.id %}<span class="badge" data-variant="outline">You</span>{% endif %}
         </td>
-        <td class="text-muted-foreground">{{ u.email }}</td>
-        <td>
+        <td data-label="Email" class="text-muted-foreground">{{ u.email }}</td>
+        <td data-label="Role">
           <span class="badge" data-variant="{{ 'secondary' if u.role == 'admin' else 'outline' }}">{{ u.role }}</span>
         </td>
-        <td class="text-end">
+        <td data-label="Actions" data-cell-action class="text-end">
           {% set user_actions = [
             {"label": "Edit", "url": url_for('edit_user', user_id=u.id)}
           ] %}

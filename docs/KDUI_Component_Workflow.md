@@ -1,183 +1,72 @@
 # KD UI Component Development Workflow
 
-This document outlines the standard operating procedure for developing new
-web components, using the Basecoat engine, and integrating them into your
-personal UI library (KD UI).
+Estate Copilot is a real application and prototype environment. KD UI is the
+separate reusable component library and owns the developer gallery. Basecoat is
+the third-party visual engine used by both repositories.
 
-## Current Integration Reality
+## Repository Roles
 
-KD UI and Basecoat are **not** linked to this project via Git submodules,
-npm packages, or any dependency manager. They are integrated as **plain,
-physically copied Jinja files**:
+- Estate Copilot: this repository
+- KD UI: the local `windseeker5/kdui` checkout (currently a sibling repository)
+- KD UI Git remote: `https://github.com/windseeker5/kdui.git`
 
-- `app/templates/basecoat/` — Basecoat engine macros (sidebar, tabs, dialog,
-  select, combobox, dropdown-menu, toast, popover, command).
-- `app/templates/components/` — your KD UI low-level components (card,
-  alert, data_table, pagination, stat_card, etc.).
-- `app/templates/blocks/` — full page/section compositions built from the
-  above.
+Estate Copilot intentionally has no `/ui` routes or component gallery. New UI
+is proven in the real page that needs it, then generalized and promoted to KD
+UI, where it receives a catalog example and regression verification.
 
-This means there is no automated "sync" step. Updating KD UI in a project
-is a manual copy-paste (or a small script, see Phase 4 below) — which is
-fine for a single-user, local-first architecture.
+## Basecoat Sync Is Separate
 
-## ⚠️ Critical: Tailwind CSS Is Pre-Compiled, Not Live
+`scripts/sync_basecoat.mjs` copies the installed `basecoat-css` npm package's
+Jinja macros, JavaScript runtime, and CSS into the repository that runs it. It
+does not read from KD UI, publish components, or interact with GitHub.
 
-**This is the #1 thing to remember when building a new component.**
+## Component Lifecycle
 
-Flask's `--debug` dev server auto-reloads on file save — but only for
-**Python and Jinja** files. It does **not** watch or rebuild CSS.
+1. Inspect Basecoat and existing KD UI components before creating anything.
+2. Prototype the pattern in a real Estate Copilot page with real data.
+3. Extract reusable markup into `app/templates/components/<name>.html`.
+4. Document Usage and Params, remove estate-specific text, and expose
+   `class_=""` for layout overrides.
+5. Put reusable browser behavior in
+   `app/static/js/components/<name>.js`, not app-specific `app.js`.
+6. Rebuild Estate Copilot CSS and verify the real page on desktop and mobile.
+7. Audit and promote the component from the KD UI repository.
+8. Add a generic live example and usage snippet to KD UI's gallery.
+9. Rebuild KD UI CSS and verify its gallery.
+10. Review both Git diffs. Ask before committing or pushing KD UI.
 
-`app/static/css/output.css` is a **static, pre-generated file**. Tailwind
-v4 scans your `.html`/`.html.jinja` files at *build time* and only
-generates CSS for the exact utility classes it finds being used. If you
-add a brand-new utility class to a template (e.g., `w-0.5`, `bg-border`,
-`size-[15px]`) that has never appeared anywhere else in the project, **it
-will not exist in `output.css` until you rebuild it** — and the browser
-will silently render nothing for that class (no error, just invisible
-styling). This is exactly what happened when building the Timeline
-component: the dots and connector line didn't appear until the CSS was
-rebuilt.
+## Promotion Commands
 
-**Rule of thumb: any time you add or change a Tailwind utility class in a
-template, rebuild the CSS before judging how the component looks.**
+Run these from the KD UI repository:
+
+```bash
+python scripts/kdui_promote.py status --source ../../Liquidator --kind component
+python scripts/kdui_promote.py component file_upload --source ../../Liquidator --dry-run
+python scripts/kdui_promote.py component file_upload --source ../../Liquidator
+```
+
+Use `block` instead of `component` for a reusable block. Promotion copies only
+the named template and an optional same-named JavaScript controller. It never
+copies the whole application, edits the source, commits, or pushes.
+
+## Tailwind Build Rule
+
+Tailwind CSS is compiled, not live. After changing any utility class, run this
+inside every affected repository before visual verification:
 
 ```bash
 npm run build:css
 ```
 
-Or, better, while actively iterating on component styling, run the watcher
-in a separate terminal so every save rebuilds automatically:
+## Completion Checklist
 
-```bash
-npm run watch:css
-```
-
-Then just refresh the browser (no Flask restart needed — only the CSS file
-needs regenerating).
-
-### When you MUST rebuild CSS
-- After adding a new component/block with **any** new Tailwind utility
-  class not already used elsewhere in the project.
-- After editing `app/static/css/input.css` (e.g. adding `@theme` tokens,
-  custom layers, or overrides).
-- After running `npm run sync:basecoat` (which replaces
-  `app/static/css/basecoat-vega.css`, a dependency of `input.css`).
-- After `npm install` or upgrading `basecoat-css` / `tailwindcss` versions
-  (though `postinstall` handles this automatically).
-
-### When you do NOT need to rebuild CSS
-- Editing Jinja logic, Flask routes, or Python code — the dev server
-  auto-reloads these.
-- Reusing utility classes that are already used elsewhere in the project
-  (they're already compiled into `output.css`).
-
-### Known gotcha: semantic color utilities silently failing
-If a component's color-based classes (`bg-primary`, `text-muted-foreground`,
-`border-primary`, `bg-border`, `text-destructive`, etc.) render as invisible
-or unstyled even after a rebuild, check that `app/static/css/input.css`
-still has its `@theme inline { --color-x: var(--x); ... }` token remap
-block. Basecoat ships its design tokens as plain CSS custom properties
-(`:root { --primary: ...; }`), not as Tailwind's native `@theme` syntax —
-without the `@theme inline` remap, Tailwind v4 doesn't know those tokens
-are colors and won't generate utilities for them at all. This was fixed
-once already (see `input.css`); if it's ever removed or `basecoat-vega.css`
-is re-synced with a structurally different token format, this symptom will
-reappear.
-
-## 1. The "Extract and Publish" Pattern
-
-Never build a new component in a vacuum inside the KD UI repository. Always
-build it inside a living, breathing application (like `Liquidator`) first.
-This ensures the component solves a real problem, fits naturally into a
-Flask/Jinja architecture, and works correctly with live data before it gets
-promoted to a reusable library.
-
-## 2. Step-by-Step Workflow
-
-### Phase 1 — Prototype Locally (in Liquidator)
-
-1. **Identify the need.** You realize you need a new UI element (e.g., a
-   `Timeline` or `DataCard`).
-2. **Create a draft.** Add a new Jinja file in `app/templates/components/`
-   (e.g., `timeline.html`).
-3. **Use base primitives first.** Do not reinvent the wheel — import macros
-   from `app/templates/basecoat/` if your component needs a dropdown,
-   dialog, tabs, or button behavior.
-4. **Style with Tailwind.** Use Tailwind utilities only for layout and
-   app-specific adjustments, staying aligned with the existing
-   shadcn/Basecoat visual language (spacing, radius, colors, typography).
-5. **Rebuild the CSS.** Run `npm run build:css` (or keep `npm run
-   watch:css` running in a terminal while you iterate). Any new Tailwind
-   utility class you just used will not render until this runs — see the
-   "Critical: Tailwind CSS Is Pre-Compiled" section above.
-6. **Test in context.** Render the draft directly in a real route (e.g.,
-   `dashboard.html`) with live Flask data, and take a real screenshot
-   (Playwright) to confirm it renders as expected — don't just trust the
-   markup. Confirm it behaves well with real content lengths, empty
-   states, and edge cases.
-
-### Phase 2 — Abstract and Generalize
-
-Once the component works well in the app, prepare it for KD UI:
-
-1. **Remove hardcoded data.** Replace Liquidator-specific text with Jinja
-   variables (e.g., `{{ title }}`, `{{ items }}`).
-2. **Add customization hooks.** Accept a `class` parameter (or `**kwargs`)
-   so future consuming apps can pass Tailwind overrides without editing the
-   macro itself.
-3. **Re-verify.** Confirm the component still renders correctly in
-   Liquidator after genericizing it.
-
-### Phase 3 — Port to KD UI
-
-Because integration is via plain file copy, porting is straightforward:
-
-1. **Copy the file** from Liquidator's `app/templates/components/` (or
-   `blocks/`) folder.
-2. **Paste it** into the matching folder inside your standalone KD UI Git
-   repository.
-3. **Commit and push** to the KD UI GitHub repository so the component is
-   saved permanently and versioned.
-
-### Phase 4 — Sync and Document
-
-1. **Add to the gallery.** In Liquidator, open
-   `app/templates/gallery/components.html` (or `blocks.html` for page-level
-   compositions) and add a live, interactive example of the new component.
-   This is your living documentation and regression check.
-2. **Rebuild CSS again.** The gallery entry may introduce its own new
-   wrapper classes (e.g., a `max-w-md` on the demo container). Run `npm run
-   build:css` once more and verify with a screenshot before considering the
-   component done.
-3. **Document the contract.** Note the file path, what it `{% from ... import %}`s,
-   and the expected template variables — per the New Blocks rule in
-   `AGENTS.md`.
-4. **Reuse in future projects.** The next time you start a new Flask app,
-   copy the KD UI `basecoat/` + `components/` folders into it, copy over
-   `input.css`'s `@theme inline` token block too, then run `npm install`
-   (triggers `postinstall` → `sync:basecoat` + `build:css`) — the new
-   component comes along fully styled.
-
-## 3. Quick Checklist
-
-- [ ] Built and tested inside a real app first (not designed in isolation)
-- [ ] Reuses Basecoat primitives instead of rebuilding them
-- [ ] Uses Tailwind only for layout/app-specific tweaks
-- [ ] Ran `npm run build:css` after adding/changing any Tailwind utility
-      class (Flask's auto-reload does NOT rebuild CSS)
-- [ ] Verified the rendered result with a real screenshot (Playwright),
-      not just by reading the markup
-- [ ] Hardcoded data replaced with Jinja variables
-- [ ] Accepts a `class`/`kwargs` override hook
-- [ ] Copied into the KD UI repo and committed
-- [ ] Added to `/ui/components` or `/ui/blocks` gallery with documented
-      file path, imports, and expected variables
-- [ ] Rebuilt CSS again after adding the gallery demo entry
-
-## 4. Future Improvement Idea
-
-Once you have 10+ components and are copy-pasting between repos often,
-consider a small `sync_kdui.ps1` script that copies known folders between
-the two repo locations, to reduce manual drift. Not needed for v1 — only
-worth building once the pattern gets repetitive.
+- [ ] Proven in a real application page
+- [ ] Reuses Basecoat where an equivalent primitive exists
+- [ ] Generic macro with documentation and `class_` override
+- [ ] Reusable JavaScript stored as a companion controller
+- [ ] Estate Copilot tested on desktop and mobile
+- [ ] Promoted to the local KD UI repository
+- [ ] Added to the KD UI gallery with a usage snippet
+- [ ] KD UI CSS rebuilt and gallery visually verified
+- [ ] Diffs reviewed in both repositories
+- [ ] No KD UI commit or push without explicit approval

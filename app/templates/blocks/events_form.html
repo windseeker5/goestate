@@ -26,7 +26,7 @@
           <label class="label" for="title">Title</label>
           <input class="input" type="text" id="title" name="title" value="{{ item.title if item else '' }}" placeholder="e.g. Called notary re: succession documents" required />
         </div>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div class="grid gap-2">
             <label class="label" for="contact">Contact</label>
             <input class="input" type="text" id="contact" name="contact" value="{{ item.contact if item else '' }}" placeholder="e.g. Me. Tremblay" />

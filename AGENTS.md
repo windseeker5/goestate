@@ -59,8 +59,10 @@ to work within this Flask/Jinja starter.
 10. **Maintain the shadcn/Basecoat visual language across all screens.**
     Use the same spacing, border-radius, colors, and typography conventions.
 
-11. **New Blocks must be demonstrated in the UI gallery** (`/ui/blocks`).
-    Document: file path, extends, and expected template variables.
+11. **Promote reusable UI to KD UI.** Prototype components and blocks in a
+    real application page, then follow `docs/KDUI_Component_Workflow.md` to
+    generalize, promote, catalog, and verify them in the separate KD UI
+    repository. Estate Copilot has no `/ui` gallery.
 
 12. **Basecoat Jinja macros** are in `app/templates/basecoat/`.
     Import them like:
@@ -87,7 +89,6 @@ app/
     assets.py        /app/assets/*
     liabilities.py   /app/liabilities/*
     events.py        /app/events/*
-    gallery.py       /ui/*
   templates/
     layouts/      base.html | app.html | public.html
     components/   stat_card | page_header | data_table | pagination |
@@ -96,9 +97,9 @@ app/
                   settings_page | login_page | landing_page
     basecoat/     sidebar | tabs | dialog | select | combobox |
                   dropdown-menu | toast | popover | command
-    gallery/      index | components | blocks
   static/
     css/output.css   compiled Tailwind + Basecoat (committed)
+    js/components/   reusable KD UI component controllers
     js/vendor/basecoat.all.min.js
 instance/          SQLite db + uploads (gitignored)
 ```
@@ -128,7 +129,7 @@ To add a new page:
 2. Register it in the module tuple in `app/__init__.py`.
 3. Create `app/templates/blocks/my_thing_list.html` (extends `layouts/app.html`).
 4. Add a sidebar entry in `app/templates/layouts/app.html`.
-5. Document it in `app/templates/gallery/blocks.html`.
+5. Verify it with Playwright. If it is reusable, promote it to KD UI.
 
 ---
 
@@ -179,7 +180,9 @@ To add a new page:
 - **Always test and validate your work** after every change. Never leave work unverified.
 - Use the **Playwright MCP** browser tool to test UI, routes, forms, and all behavior.
 - Login is password-only (single user). The password is whatever is set in
-  `.env` as `LIQUIDATOR_PASSWORD` — check that file for the current value.
+   `.env` as `LIQUIDATOR_PASSWORD` — check that file for the current value.
+- For the local test account, sign in as `kdresdell@gmail.com` with password
+  `admin123` unless the developer gives different credentials.
 - Navigate to `http://127.0.0.1:5001` (or the configured `FLASK_RUN_PORT`) as the starting point.
 - Report findings from Playwright — do not guess behavior from code alone.
 

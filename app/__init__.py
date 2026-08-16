@@ -35,17 +35,17 @@ def create_app(config_object=DevConfig):
 
     @app.before_request
     def _require_login():
-        # Every authenticated screen lives under /app or /ui.
+        # Every authenticated screen lives under /app.
         # Everything else (/, /login, static files) stays public.
-        if request.path.startswith("/app") or request.path.startswith("/ui"):
+        if request.path.startswith("/app"):
             if not is_logged_in():
                 return redirect(url_for("login"))
 
     # Plain functions, one file per domain. No blueprints — this is a
     # single-user local app, so the extra indirection isn't worth it.
-    from app.routes import public, dashboard, assets, liabilities, events, documents, chat, gallery, users
+    from app.routes import public, dashboard, assets, liabilities, events, documents, chat, users
 
-    for module in (public, dashboard, assets, liabilities, events, documents, chat, gallery, users):
+    for module in (public, dashboard, assets, liabilities, events, documents, chat, users):
         module.register(app)
 
     from app.commands import init_db_command, verify_vec_command

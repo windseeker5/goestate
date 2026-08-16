@@ -1,7 +1,7 @@
 {% extends "layouts/app.html" %}
 {% from "components/page_header.html"   import page_header %}
 {% from "components/search_filter.html" import search_filter %}
-{% from "components/data_table.html"    import data_table %}
+{% from "components/data_table.html"    import data_table, table_cell %}
 {% from "components/pagination.html"    import pagination %}
 {% from "components/action_menu.html"   import action_menu %}
 
@@ -18,40 +18,39 @@
 
 {{ search_filter(
   action=url_for("list_assets"),
-  q=q,
-  filters=[
-    {
-      "name": "status",
-      "options": [("", "All statuses"), ("Active", "Active"), ("Pending", "Pending"), ("Sold", "Sold"), ("Distributed", "Distributed")],
-      "value": status
-    }
-  ]
+  q=q
 ) }}
 
 <p class="text-sm text-muted-foreground mb-3">{{ total }} record{{ "s" if total != 1 else "" }}</p>
 
 {% set columns = [
-  {"key": "created_at",      "label": "Date",       "sortable": true},
+  {"key": "created_at",      "label": "Date",       "sortable": true,  "class_": "w-28"},
   {"key": "name",            "label": "Name",       "sortable": true},
-  {"key": "category",        "label": "Category",   "sortable": true},
-  {"key": "estimated_value", "label": "Est. Value", "sortable": true, "align": "end"},
-  {"key": "sale_price",      "label": "Sale Price", "sortable": true, "align": "end"},
-  {"key": "status",          "label": "Status",     "sortable": false},
-  {"key": "_actions",        "label": "",           "sortable": false, "align": "end"}
+  {"key": "category",        "label": "Category",   "sortable": true,  "class_": "w-28"},
+  {"key": "estimated_value", "label": "Est. Value", "sortable": true,  "align": "end", "class_": "w-28"},
+  {"key": "sale_price",      "label": "Sale Price", "sortable": true,  "align": "end", "class_": "w-28"},
+  {"key": "status",          "label": "Status",     "sortable": false, "class_": "w-28"},
+  {"key": "_actions",        "label": "",           "sortable": false, "align": "end", "class_": "w-28"}
 ] %}
 
-{% call(row) data_table(columns=columns, rows=assets, sort=sort, order=order, base_url=url_for("list_assets"), scrollable=false) %}
-  <td class="text-muted-foreground">{{ row.created_at.split("T")[0] if row.created_at else "—" }}</td>
-  <td class="font-medium">{{ row.name }}</td>
-  <td>{{ row.category or "—" }}</td>
-  <td class="text-end">{{ "$%.2f"|format(row.estimated_value) if row.estimated_value else "—" }}</td>
-  <td class="text-end">{{ "$%.2f"|format(row.sale_price) if row.sale_price else "—" }}</td>
-  <td>
+{% call(row) data_table(columns=columns, rows=assets, sort=sort, order=order, base_url=url_for("list_assets"), responsive=true) %}
+  {% call table_cell("Date", numeric=true, class_="text-muted-foreground") %}{{ row.created_at.split("T")[0] if row.created_at else "—" }}{% endcall %}
+  {% call table_cell("Name", primary=true, summary=true, summary_title=row.name, class_="font-medium") %}
+    {% if row.photo_path %}
+    <a href="{{ url_for('view_asset_photo', item_id=row.id) }}" target="_blank" rel="noopener" class="hover:underline">{{ row.name }}</a>
+    {% else %}
+    {{ row.name }}
+    {% endif %}
+  {% endcall %}
+  {% call table_cell("Category") %}{{ row.category or "—" }}{% endcall %}
+  {% call table_cell("Estimated value", numeric=true, class_="text-end") %}{{ "$%.2f"|format(row.estimated_value) if row.estimated_value else "—" }}{% endcall %}
+  {% call table_cell("Sale price", numeric=true, class_="text-end") %}{{ "$%.2f"|format(row.sale_price) if row.sale_price else "—" }}{% endcall %}
+  {% call table_cell("Status") %}
     <span class="badge" data-variant="{{ 'secondary' if row.status in ('Sold', 'Distributed') else 'outline' }}">
       {{ row.status }}
     </span>
-  </td>
-  <td class="text-end">
+  {% endcall %}
+  {% call table_cell("Actions", action=true, class_="text-end") %}
     {% set row_actions = [
       {"label": "View", "url": url_for('detail_asset', item_id=row.id)}
     ] %}
@@ -65,14 +64,14 @@
     {% endif %}
     <form id="delete-form-{{ row.id }}" method="post" action="{{ url_for('delete_asset', item_id=row.id) }}" class="hidden"></form>
     {{ action_menu(id="asset-actions-" ~ row.id, items=row_actions) }}
-  </td>
+  {% endcall %}
 {% endcall %}
 
 {{ pagination(
   page=page,
   total_pages=total_pages,
   base_url=url_for("list_assets"),
-  extra_params={"q": q, "status": status, "sort": sort, "order": order}
+  extra_params={"q": q, "sort": sort, "order": order}
 ) }}
 
 {% endblock %}

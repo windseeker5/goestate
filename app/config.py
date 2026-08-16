@@ -21,6 +21,9 @@ class Config:
     # Dev server port, used by app.py (python app.py).
     PORT = int(os.environ.get("FLASK_RUN_PORT", 5000))
 
+    # Bind host for local dev and Docker reverse proxy access.
+    HOST = os.environ.get("FLASK_RUN_HOST", "0.0.0.0")
+
 
 class DevConfig(Config):
     DEBUG = True

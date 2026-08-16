@@ -1,8 +1,11 @@
 {% extends "layouts/app.html" %}
 {% from "components/page_header.html" import page_header %}
+{% from "components/alert.html" import alert %}
+{% from "components/file_upload.html" import file_upload %}
 {% from "basecoat/select.html.jinja" import select %}
 
 {% set is_edit = item is not none %}
+{% set values = form_data if form_data else item %}
 {% block title %}{{ "Edit" if is_edit else "New" }} Asset – Estate Copilot{% endblock %}
 {% block breadcrumb %}
   <a href="{{ url_for('list_assets') }}" class="hover:underline text-muted-foreground">Assets</a>
@@ -18,26 +21,30 @@
 ) }}
 
 <div class="max-w-2xl">
+  {% if error %}
+  {{ alert(title="Photo not saved", message=error, variant="destructive") }}
+  {% endif %}
+
   <div class="card">
     <header><h2>Asset Details</h2></header>
     <section>
-      <form id="asset-form" method="post" class="grid gap-5">
+      <form id="asset-form" method="post" enctype="multipart/form-data" class="grid gap-5">
         <div class="grid gap-2">
           <label class="label" for="name">Name</label>
-          <input class="input" type="text" id="name" name="name" value="{{ item.name if item else '' }}" placeholder="e.g. Family House" required />
+          <input class="input" type="text" id="name" name="name" value="{{ values.name if values else '' }}" placeholder="e.g. Family House" required />
         </div>
         <div class="grid gap-2">
           <label class="label" for="category">Category</label>
-          <input class="input" type="text" id="category" name="category" value="{{ item.category if item else '' }}" placeholder="e.g. Real Estate, Vehicle, Bank Account" />
+          <input class="input" type="text" id="category" name="category" value="{{ values.category if values else '' }}" placeholder="e.g. Real Estate, Vehicle, Bank Account" />
         </div>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div class="grid gap-2">
             <label class="label" for="estimated_value">Estimated Value</label>
-            <input class="input" type="number" step="0.01" id="estimated_value" name="estimated_value" value="{{ item.estimated_value if item else '' }}" />
+            <input class="input" type="number" step="0.01" id="estimated_value" name="estimated_value" value="{{ values.estimated_value if values else '' }}" />
           </div>
           <div class="grid gap-2">
             <label class="label" for="sale_price">Sale Price</label>
-            <input class="input" type="number" step="0.01" id="sale_price" name="sale_price" value="{{ item.sale_price if item and item.sale_price else '' }}" />
+            <input class="input" type="number" step="0.01" id="sale_price" name="sale_price" value="{{ values.sale_price if values and values.sale_price else '' }}" />
           </div>
         </div>
         <div class="grid gap-2">
@@ -47,13 +54,40 @@
           {{ select(
             id="status",
             name="status",
-            selected=(item.status if item else statuses[0]),
+            selected=(values.status if values and values.status else statuses[0]),
             items=status_items
           ) }}
         </div>
         <div class="grid gap-2">
           <label class="label" for="notes">Notes</label>
-          <textarea class="input min-h-24" id="notes" name="notes">{{ item.notes if item else '' }}</textarea>
+          <textarea class="input min-h-24" id="notes" name="notes">{{ values.notes if values else '' }}</textarea>
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="asset-photo-input">Photo</label>
+          <div id="asset-photo-preview-container" class="{{ '' if item and item.photo_path else 'hidden' }} overflow-hidden rounded-lg border bg-muted/30">
+            <img
+              id="asset-photo-preview"
+              src="{{ url_for('view_asset_photo', item_id=item.id) if item and item.photo_path else '' }}"
+              alt="Selected asset photo preview"
+              class="max-h-80 w-full object-contain"
+            />
+          </div>
+          {{ file_upload(
+            input_id="asset-photo-input",
+            name="photo",
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif",
+            prompt="Replace photo" if item and item.photo_path else "Add a photo",
+            hint="Choose one image from your photo library. 15 MB maximum.",
+            preview_id="asset-photo-preview",
+            preview_container_id="asset-photo-preview-container",
+            remove_input_id="remove-asset-photo"
+          ) }}
+          {% if item and item.photo_path %}
+          <label class="flex items-center gap-2 text-sm text-muted-foreground" for="remove-asset-photo">
+            <input id="remove-asset-photo" type="checkbox" name="remove_photo" value="1" class="size-4 rounded border-input" />
+            Remove the current photo
+          </label>
+          {% endif %}
         </div>
       </form>
     </section>

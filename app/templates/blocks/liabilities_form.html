@@ -1,8 +1,11 @@
 {% extends "layouts/app.html" %}
 {% from "components/page_header.html" import page_header %}
+{% from "components/alert.html" import alert %}
+{% from "components/file_upload.html" import file_upload %}
 {% from "basecoat/select.html.jinja" import select %}
 
 {% set is_edit = item is not none %}
+{% set values = form_data if form_data else item %}
 {% block title %}{{ "Edit" if is_edit else "New" }} Liability – Estate Copilot{% endblock %}
 {% block breadcrumb %}
   <a href="{{ url_for('list_liabilities') }}" class="hover:underline text-muted-foreground">Liabilities</a>
@@ -18,26 +21,30 @@
 ) }}
 
 <div class="max-w-2xl">
+  {% if error %}
+  {{ alert(title="Photo not saved", message=error, variant="destructive") }}
+  {% endif %}
+
   <div class="card">
     <header><h2>Liability Details</h2></header>
     <section>
-      <form id="liability-form" method="post" class="grid gap-5">
+      <form id="liability-form" method="post" enctype="multipart/form-data" class="grid gap-5">
         <div class="grid gap-2">
           <label class="label" for="creditor">Creditor</label>
-          <input class="input" type="text" id="creditor" name="creditor" value="{{ item.creditor if item else '' }}" placeholder="e.g. Hydro-Quebec, Funeral Home" required />
+          <input class="input" type="text" id="creditor" name="creditor" value="{{ values.creditor if values else '' }}" placeholder="e.g. Hydro-Quebec, Funeral Home" required />
         </div>
         <div class="grid gap-2">
           <label class="label" for="description">Description</label>
-          <input class="input" type="text" id="description" name="description" value="{{ item.description if item else '' }}" placeholder="e.g. Final electricity bill" />
+          <input class="input" type="text" id="description" name="description" value="{{ values.description if values else '' }}" placeholder="e.g. Final electricity bill" />
         </div>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div class="grid gap-2">
             <label class="label" for="amount">Amount</label>
-            <input class="input" type="number" step="0.01" id="amount" name="amount" value="{{ item.amount if item else '' }}" />
+            <input class="input" type="number" step="0.01" id="amount" name="amount" value="{{ values.amount if values else '' }}" />
           </div>
           <div class="grid gap-2">
             <label class="label" for="due_date">Due Date</label>
-            <input class="input" type="date" id="due_date" name="due_date" value="{{ item.due_date if item and item.due_date else '' }}" />
+            <input class="input" type="date" id="due_date" name="due_date" value="{{ values.due_date if values and values.due_date else '' }}" />
           </div>
         </div>
         <div class="grid gap-2">
@@ -47,13 +54,40 @@
           {{ select(
             id="status",
             name="status",
-            selected=(item.status if item else statuses[0]),
+            selected=(values.status if values and values.status else statuses[0]),
             items=status_items
           ) }}
         </div>
         <div class="grid gap-2">
           <label class="label" for="notes">Notes</label>
-          <textarea class="input min-h-24" id="notes" name="notes">{{ item.notes if item else '' }}</textarea>
+          <textarea class="input min-h-24" id="notes" name="notes">{{ values.notes if values else '' }}</textarea>
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="liability-photo-input">Photo</label>
+          <div id="liability-photo-preview-container" class="{{ '' if item and item.photo_path else 'hidden' }} overflow-hidden rounded-lg border bg-muted/30">
+            <img
+              id="liability-photo-preview"
+              src="{{ url_for('view_liability_photo', item_id=item.id) if item and item.photo_path else '' }}"
+              alt="Selected liability photo preview"
+              class="max-h-80 w-full object-contain"
+            />
+          </div>
+          {{ file_upload(
+            input_id="liability-photo-input",
+            name="photo",
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif",
+            prompt="Replace photo" if item and item.photo_path else "Add a photo",
+            hint="Choose one image from your photo library. 15 MB maximum.",
+            preview_id="liability-photo-preview",
+            preview_container_id="liability-photo-preview-container",
+            remove_input_id="remove-liability-photo"
+          ) }}
+          {% if item and item.photo_path %}
+          <label class="flex items-center gap-2 text-sm text-muted-foreground" for="remove-liability-photo">
+            <input id="remove-liability-photo" type="checkbox" name="remove_photo" value="1" class="size-4 rounded border-input" />
+            Remove the current photo
+          </label>
+          {% endif %}
         </div>
       </form>
     </section>

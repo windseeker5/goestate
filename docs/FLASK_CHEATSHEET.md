@@ -145,9 +145,9 @@ Then in `app/__init__.py`, once `app` is built, every route module gets
 "switched on" by calling its `register(app)`:
 
 ```python
-from app.routes import public, dashboard, assets, liabilities, events, documents, chat, gallery
+from app.routes import public, dashboard, assets, liabilities, events, documents, chat, users
 
-for module in (public, dashboard, assets, liabilities, events, documents, chat, gallery):
+for module in (public, dashboard, assets, liabilities, events, documents, chat, users):
     module.register(app)
 ```
 
@@ -165,7 +165,7 @@ for module in (public, dashboard, assets, liabilities, events, documents, chat, 
 2. Add `my_thing` to the import + tuple in `app/__init__.py`.
 3. Create `app/templates/blocks/my_thing.html`.
 4. Add a sidebar link in `app/templates/layouts/app.html`.
-5. (Optional) Document it in `app/templates/gallery/blocks.html`.
+5. Verify it with Playwright. Promote reusable UI to the separate KD UI catalog.
 
 ---
 
@@ -368,13 +368,11 @@ Liquidator/
 │   │   ├── liabilities.py  ← /app/liabilities/*
 │   │   ├── events.py       ← /app/events/*
 │   │   ├── documents.py    ← /app/documents/*
-│   │   ├── chat.py         ← /app/chat
-│   │   └── gallery.py      ← /ui/*
+│   │   └── chat.py         ← /app/chat
 │   ├── templates/
 │   │   ├── layouts/        ← base.html, app.html, public.html
 │   │   ├── components/     ← reusable Jinja macros
-│   │   ├── blocks/         ← full page templates
-│   │   └── gallery/        ← UI catalog pages
+│   │   └── blocks/         ← full page templates
 │   └── static/
 │       ├── css/
 │       └── js/

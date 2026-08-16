@@ -19,6 +19,14 @@
   <div class="card {{ 'md:col-span-2' if g.user.role == 'admin' else 'md:col-span-3' }}">
     <header><h2>Details</h2></header>
     <section>
+      {% if item.photo_path %}
+      <div class="mb-6">
+        <p class="mb-2 text-xs text-muted-foreground uppercase tracking-wide">Photo</p>
+        <a href="{{ url_for('view_asset_photo', item_id=item.id) }}" target="_blank" rel="noopener" class="block overflow-hidden rounded-lg border bg-muted/30">
+          <img src="{{ url_for('view_asset_photo', item_id=item.id) }}" alt="Photo of {{ item.name }}" class="max-h-[32rem] w-full object-contain" />
+        </a>
+      </div>
+      {% endif %}
       <dl class="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
         <div>
           <dt class="text-xs text-muted-foreground uppercase tracking-wide">Category</dt>

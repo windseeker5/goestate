@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS assets (
     status          TEXT    DEFAULT 'Active',
                                         -- Active | Sold | Distributed | Pending
     notes           TEXT,
+    photo_path      TEXT,               -- relative to instance/uploads/ledger-photos/
+    photo_mime_type TEXT,
     created_at      TEXT    DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     updated_at      TEXT    DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
@@ -60,6 +62,8 @@ CREATE TABLE IF NOT EXISTS liabilities (
     status          TEXT    DEFAULT 'Unpaid',
                                         -- Unpaid | Paid | Disputed | Cancelled
     notes           TEXT,
+    photo_path      TEXT,               -- relative to instance/uploads/ledger-photos/
+    photo_mime_type TEXT,
     created_at      TEXT    DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
     updated_at      TEXT    DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
@@ -142,13 +146,23 @@ def init_db_command():
         db.executescript(SCHEMA_SQL)
         db.commit()
 
-        # Lightweight migration: add columns to existing tables that predate
-        # them. CREATE TABLE IF NOT EXISTS above only helps brand-new DBs.
-        existing_columns = {row["name"] for row in db.execute("PRAGMA table_info(users)").fetchall()}
-        if "name" not in existing_columns:
-            db.execute("ALTER TABLE users ADD COLUMN name TEXT")
-            db.commit()
-            click.echo(click.style("  [OK] Migrated: added users.name column.", fg="green"))
+        # Lightweight migrations for existing databases. CREATE TABLE IF NOT
+        # EXISTS above only supplies new columns when creating a fresh DB.
+        migrations = (
+            ("users", "name", "TEXT"),
+            ("assets", "photo_path", "TEXT"),
+            ("assets", "photo_mime_type", "TEXT"),
+            ("liabilities", "photo_path", "TEXT"),
+            ("liabilities", "photo_mime_type", "TEXT"),
+        )
+        for table, column, column_type in migrations:
+            existing_columns = {
+                row["name"] for row in db.execute(f"PRAGMA table_info({table})").fetchall()
+            }
+            if column not in existing_columns:
+                db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}")
+                db.commit()
+                click.echo(click.style(f"  [OK] Migrated: added {table}.{column} column.", fg="green"))
 
         click.echo(click.style("  [OK] Database initialised.", fg="green"))
         click.echo(click.style("       Tables: users, assets, liabilities, events, documents,", dim=True))

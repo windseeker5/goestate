@@ -2,6 +2,7 @@
 {% from "components/page_header.html" import page_header %}
 {% from "components/empty_state.html" import empty_state %}
 {% from "components/action_menu.html" import action_menu %}
+{% from "components/file_upload.html" import file_upload %}
 
 {% block title %}Documents – Estate Copilot{% endblock %}
 {% block breadcrumb %}Documents{% endblock %}
@@ -22,8 +23,8 @@
   tap-friendly at every width.
 
   The hidden <input multiple> lets a user pick or drop several PDFs in one
-  go; app.js wires up drag-over styling and auto-submits the form the
-  moment files are chosen so there's no separate "confirm" step.
+  go; the reusable file_upload controller wires up drag-over styling and
+  auto-submits the form when files are chosen.
 
   On submit, #upload-loading replaces the dropzone. Ingestion runs
   synchronously per the current architecture (see routes/documents.py), so
@@ -39,27 +40,25 @@
       action="{{ url_for('upload_document') }}"
       enctype="multipart/form-data"
     >
-      <label
-        id="upload-dropzone"
-        for="upload-file-input"
-        class="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-input p-8 text-center cursor-pointer transition-colors hover:bg-muted/40 hover:border-ring"
-      >
-        <svg class="lucide lucide-upload-cloud size-8 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
-        <p class="text-sm font-medium">Click to add documents, or drag and drop PDFs here</p>
-        <p class="text-xs text-muted-foreground">You can select multiple files at once</p>
-        <input
-          id="upload-file-input"
-          class="sr-only"
-          type="file"
-          name="file"
-          accept="application/pdf"
-          multiple
-          required
-        />
-      </label>
+      {{ file_upload(
+        input_id="upload-file-input",
+        name="file",
+        accept="application/pdf",
+        prompt="Click to add documents, or drag and drop PDFs here",
+        hint="You can select multiple files at once",
+        multiple=true,
+        required=true,
+        dropzone_id="upload-dropzone",
+        auto_submit=true,
+        loading_id="upload-loading",
+        loading_text_id="upload-loading-text",
+        submit_hint_id="upload-hint",
+        loading_single="Processing your document...",
+        loading_multiple="Processing {count} documents..."
+      ) }}
     </form>
 
-    {# Loading state: swapped in by app.js right before the form submits,
+    {# Loading state: swapped in by the file_upload controller on submit,
        replacing the dropzone so the page never looks frozen mid-upload. #}
     <div id="upload-loading" class="hidden flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-input p-8 text-center">
       <svg class="lucide lucide-loader-circle size-8 text-muted-foreground animate-spin" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
@@ -73,45 +72,28 @@
 {% endif %}
 
 {% if documents %}
-{#
-  rounded-lg border + bg-background: matches the bordered look every
-  component gets in the UI Gallery demo (see components/data_table.html
-  for the full rationale).
-
-  No .table-container/overflow-hidden wrapper here on purpose (unlike some
-  other list pages). Basecoat's dropdown-menu/popover components hide
-  their closed state with opacity:0 + scale (for the open/close
-  transition), not display:none — the closed popover still occupies real
-  layout space, positioned via `top: 100%` relative to its trigger.
-  Wrapping that in a clipped/scrollable container clips the popover the
-  instant it opens, because CSS scroll-containers clip
-  absolutely-positioned descendants even when nothing is actually
-  scrolled. This table's columns are narrow enough to never need
-  horizontal scroll anyway, so we skip the wrapper entirely rather than
-  fight the popover's positioning.
-#}
-<div class="rounded-lg border bg-background overflow-x-visible">
-  <table class="table">
+<div class="responsive-table rounded-lg border bg-background">
+  <table class="table table-fixed">
     <thead>
       <tr>
-        <th>Uploaded</th>
+        <th class="w-28">Uploaded</th>
         <th>Filename</th>
-        <th>Status</th>
-        {% if g.user.role == "admin" %}<th class="text-end"></th>{% endif %}
+        <th class="w-28">Status</th>
+        {% if g.user.role == "admin" %}<th class="w-28 text-end"></th>{% endif %}
       </tr>
     </thead>
     <tbody>
       {% for doc in documents %}
       <tr>
-        <td class="text-muted-foreground">{{ doc.created_at.split("T")[0] if doc.created_at else "—" }}</td>
-        <td class="font-medium">
+        <td data-label="Uploaded" class="text-muted-foreground">{{ doc.created_at.split("T")[0] if doc.created_at else "—" }}</td>
+        <td data-label="Filename" data-cell-primary class="font-medium">
           {% if doc.filepath %}
-          <a href="{{ url_for('view_document', document_id=doc.id) }}" target="_blank" rel="noopener" class="hover:underline text-foreground">{{ doc.filename }}</a>
+          <a href="{{ url_for('view_document', document_id=doc.id) }}" target="_blank" rel="noopener" class="table-cell-summary hover:underline text-foreground" title="{{ doc.filename }}">{{ doc.filename }}</a>
           {% else %}
-          {{ doc.filename }}
+          <span class="table-cell-summary" title="{{ doc.filename }}">{{ doc.filename }}</span>
           {% endif %}
         </td>
-        <td>
+        <td data-label="Status">
           {% if doc.ingestion_status == 'embedded' %}
           <span class="badge" data-variant="secondary">Embedded</span>
           {% elif doc.ingestion_status == 'parsed' %}
@@ -123,7 +105,7 @@
           {% endif %}
         </td>
         {% if g.user.role == "admin" %}
-        <td class="text-end">
+        <td data-label="Actions" data-cell-action class="text-end">
           {# Hidden forms carry out the actual POST actions; the dropdown
              menu below just triggers them. Keeping them as real <form>
              elements (not fetch/JS) means this still works if JS is slow

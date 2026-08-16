@@ -45,7 +45,131 @@
 }
 
 /*
-  Add project-specific Tailwind layer tweaks below.
-  Prefer Basecoat's semantic component classes (btn, card, input, etc.)
-  before reaching for raw Tailwind utility soup.
+  Data tables become labeled records before the pinned sidebar leaves too
+  little usable width for columns. Keeping the wrapper unclipped preserves
+  Basecoat's inline dropdown menus in the Action field.
 */
+@layer components {
+  /* Closed Basecoat overlays must not widen the page while off-screen. */
+  [data-popover][aria-hidden="true"] {
+    display: none;
+  }
+
+  .responsive-table .table {
+    table-layout: fixed;
+  }
+
+  .responsive-table th,
+  .responsive-table td {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    vertical-align: middle;
+  }
+
+  .table-cell-summary {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  @media (max-width: 79.999rem) {
+    .responsive-table .table,
+    .responsive-table .table tbody,
+    .responsive-table .table tr,
+    .responsive-table .table td {
+      display: block;
+      width: 100%;
+    }
+
+    .responsive-table .table thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+
+    .responsive-table .table tr {
+      display: flex;
+      flex-direction: column;
+      padding: 0.875rem 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .responsive-table .table tr:last-child {
+      border-bottom: 0;
+    }
+
+    .responsive-table .table td[data-label] {
+      display: grid;
+      grid-template-columns: minmax(5.5rem, 0.8fr) minmax(0, 1.2fr);
+      gap: 0.75rem;
+      padding: 0.375rem 0;
+      border: 0;
+      justify-items: end;
+      text-align: right;
+    }
+
+    .responsive-table .table td[data-label]::before {
+      content: attr(data-label);
+      color: var(--muted-foreground);
+      font-size: 0.75rem;
+      font-weight: 500;
+      line-height: 1.25rem;
+      justify-self: start;
+      text-align: left;
+    }
+
+    .responsive-table .table td[data-cell-primary] {
+      grid-template-columns: 1fr;
+      gap: 0.125rem;
+      justify-items: start;
+      order: -1;
+      text-align: left;
+    }
+
+    .responsive-table .table td[data-cell-action] {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .responsive-table .table td[colspan] {
+      display: block;
+      padding-block: 2rem;
+      text-align: center;
+    }
+
+    .responsive-table .table td[colspan]::before {
+      content: none;
+    }
+
+    .responsive-table .table .table-cell-summary {
+      display: block;
+      overflow: visible;
+      -webkit-line-clamp: unset;
+    }
+
+    .responsive-table .table td[data-cell-secondary] {
+      display: none;
+    }
+
+    .responsive-table .table td[data-cell-hide-label]::before {
+      content: none;
+    }
+
+    .responsive-table .table td[data-cell-summary] .table-cell-summary {
+      display: -webkit-box;
+      overflow: hidden;
+      -webkit-line-clamp: 2;
+    }
+  }
+
+  @media (max-width: 22.5rem) {
+    .pagination-label {
+      display: none;
+    }
+  }
+}

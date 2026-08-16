@@ -48,6 +48,9 @@ python app.py                    # start the dev server (debug mode)
 Open **http://localhost:5001** (port comes from `FLASK_RUN_PORT` in `.env`,
 defaults to 5001 per `.env.example`).
 
+If you are proxying through Docker/Caddy, keep `FLASK_RUN_HOST=0.0.0.0` so the
+proxy container can reach the Flask app on the host.
+
 `init-db` and `verify-vec` are CLI-only commands, run via `flask --app
 wsgi`. Day-to-day, just use `python app.py` to start the server.
 
@@ -62,7 +65,6 @@ wsgi`. Day-to-day, just use `python app.py` to start the server.
 | `/app/documents` | Upload PDFs, monitor ingestion status |
 | `/app/chat` | Ask questions about ingested documents (RAG) |
 | `/app/settings` | Configure LLM provider (base URL, model, API key) |
-| `/ui/` | UI component + block gallery |
 
 ---
 
@@ -85,15 +87,14 @@ app/
     events.py               /app/events/*
     documents.py             /app/documents/* (upload, list, delete, reindex)
     chat.py                  /app/chat (RAG question answering)
-    gallery.py              /ui/*
   templates/
     basecoat/              Vendored Basecoat Jinja macros
     components/            Reusable Jinja macros (page_header, data_table, etc.)
     blocks/                Full page templates
     layouts/                base.html / app.html / public.html
-    gallery/                Live UI catalog
   static/
     css/output.css          Compiled CSS (committed — no Node needed to run)
+    js/components/           Reusable KD UI component controllers
     js/vendor/               Basecoat JS runtime
 instance/                   SQLite db + uploads (gitignored)
 ```
@@ -101,6 +102,10 @@ instance/                   SQLite db + uploads (gitignored)
 There are no blueprints. Every route file exposes a `register(app)` function
 that attaches its routes with plain `@app.route`. `url_for()` calls use the
 function name directly, e.g. `url_for("list_assets")`.
+
+Reusable UI is promoted to the separate KD UI repository at
+`../kdui/flask-shadcn-starter`, whose `/ui` routes are the developer showroom.
+Estate Copilot intentionally does not expose component-development pages.
 
 ---
 
@@ -168,7 +173,7 @@ change the three fields in Settings, no code changes needed.
 2. Register it in `app/__init__.py`'s module tuple.
 3. Add templates in `app/templates/blocks/`.
 4. Add a sidebar entry in `app/templates/layouts/app.html`.
-5. Add a gallery entry in `app/templates/gallery/blocks.html`.
+5. Verify the page with Playwright. Promote reusable UI to KD UI.
 
 ---
 

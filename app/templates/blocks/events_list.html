@@ -1,7 +1,7 @@
 {% extends "layouts/app.html" %}
 {% from "components/page_header.html"   import page_header %}
 {% from "components/search_filter.html" import search_filter %}
-{% from "components/data_table.html"    import data_table %}
+{% from "components/data_table.html"    import data_table, table_cell %}
 {% from "components/pagination.html"    import pagination %}
 {% from "components/action_menu.html"   import action_menu %}
 
@@ -31,19 +31,19 @@
 <p class="text-sm text-muted-foreground mb-3">{{ total }} record{{ "s" if total != 1 else "" }}</p>
 
 {% set columns = [
-  {"key": "event_date", "label": "Date",    "sortable": true},
-  {"key": "type",       "label": "Type",    "sortable": false},
-  {"key": "contact",    "label": "Contact", "sortable": true},
+  {"key": "event_date", "label": "Date",    "sortable": true,  "class_": "w-28"},
+  {"key": "type",       "label": "Type",    "sortable": false, "class_": "w-24"},
+  {"key": "contact",    "label": "Contact", "sortable": true,  "class_": "w-36"},
   {"key": "title",      "label": "Topic",   "sortable": true},
-  {"key": "_actions",   "label": "",        "sortable": false, "align": "end"}
+  {"key": "_actions",   "label": "",        "sortable": false, "align": "end", "class_": "w-28"}
 ] %}
 
-{% call(row) data_table(columns=columns, rows=events, sort=sort, order=order, base_url=url_for("list_events"), scrollable=false) %}
-  <td class="text-muted-foreground">{{ row.event_date or "—" }}</td>
-  <td><span class="badge" data-variant="outline">{{ row.type }}</span></td>
-  <td>{{ row.contact or "—" }}</td>
-  <td class="font-medium">{{ row.title }}</td>
-  <td class="text-end">
+{% call(row) data_table(columns=columns, rows=events, sort=sort, order=order, base_url=url_for("list_events"), responsive=true) %}
+  {% call table_cell("Date", numeric=true, class_="text-muted-foreground") %}{{ row.event_date or "—" }}{% endcall %}
+  {% call table_cell("Type") %}<span class="badge" data-variant="outline">{{ row.type }}</span>{% endcall %}
+  {% call table_cell("Contact", secondary=true) %}{{ row.contact or "—" }}{% endcall %}
+  {% call table_cell("Topic", primary=true, summary=true, summary_title=row.title, hide_label=true) %}{{ row.title }}{% endcall %}
+  {% call table_cell("Actions", action=true, class_="text-end") %}
     {% set row_actions = [
       {"label": "View", "url": url_for('detail_event', item_id=row.id)}
     ] %}
@@ -57,7 +57,7 @@
     {% endif %}
     <form id="delete-form-{{ row.id }}" method="post" action="{{ url_for('delete_event', item_id=row.id) }}" class="hidden"></form>
     {{ action_menu(id="event-actions-" ~ row.id, items=row_actions) }}
-  </td>
+  {% endcall %}
 {% endcall %}
 
 {{ pagination(

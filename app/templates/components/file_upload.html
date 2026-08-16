@@ -1,0 +1,92 @@
+{#
+  Reusable file picker/dropzone with optional image preview and auto-submit.
+
+  Usage:
+    {% from "components/file_upload.html" import file_upload %}
+    {{ file_upload(
+      input_id="avatar",
+      name="avatar",
+      prompt="Add a photo",
+      hint="JPEG or PNG. 5 MB maximum.",
+      accept="image/jpeg,image/png",
+      preview_id="avatar-preview",
+      preview_container_id="avatar-preview-container"
+    ) }}
+
+  Params:
+    input_id             {string}  Required unique file input ID.
+    name                 {string}  Required submitted field name.
+    prompt               {string}  Primary picker text.
+    hint                 {string}  Optional supporting text.
+    accept               {string}  Optional native accept filter. Always validate server-side.
+    multiple             {bool}    Allow more than one file. Default false.
+    required             {bool}    Require a selection. Default false.
+    class_               {string}  Additional classes for the dropzone label.
+    dropzone_id          {string}  Optional explicit label ID.
+    preview_id           {string}  Optional <img> ID for a local image preview.
+    preview_container_id {string}  Optional wrapper ID revealed for a valid image preview.
+    remove_input_id      {string}  Optional checkbox ID to clear when a replacement is chosen.
+    auto_submit          {bool}    Submit the nearest form after selection/drop. Default false.
+    loading_id           {string}  Optional loading element revealed during form submission.
+    loading_text_id      {string}  Optional element whose text describes upload progress.
+    submit_hint_id       {string}  Optional external hint hidden during form submission.
+    loading_single       {string}  Loading text for one file.
+    loading_multiple     {string}  Loading text for multiple files; use {count} placeholder.
+
+  Progressive enhancement:
+    Click/tap selection works without JavaScript. Drag/drop, selected-file text,
+    preview, loading state, and auto-submit require static/js/components/file_upload.js.
+#}
+{% macro file_upload(
+  input_id,
+  name,
+  prompt,
+  hint=none,
+  accept=none,
+  multiple=false,
+  required=false,
+  class_="",
+  dropzone_id=none,
+  preview_id=none,
+  preview_container_id=none,
+  remove_input_id=none,
+  auto_submit=false,
+  loading_id=none,
+  loading_text_id=none,
+  submit_hint_id=none,
+  loading_single="Uploading your file...",
+  loading_multiple="Uploading {count} files..."
+) %}
+<label
+  id="{{ dropzone_id or input_id ~ '-dropzone' }}"
+  for="{{ input_id }}"
+  data-file-upload
+  data-auto-submit="{{ 'true' if auto_submit else 'false' }}"
+  {% if loading_id %}data-loading-id="{{ loading_id }}"{% endif %}
+  {% if loading_text_id %}data-loading-text-id="{{ loading_text_id }}"{% endif %}
+  {% if submit_hint_id %}data-submit-hint-id="{{ submit_hint_id }}"{% endif %}
+  data-loading-single="{{ loading_single }}"
+  data-loading-multiple="{{ loading_multiple }}"
+  class="flex min-h-36 flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-input p-6 text-center cursor-pointer transition-colors hover:bg-muted/40 hover:border-ring has-[:focus-visible]:border-ring has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring/50 {{ class_ }}"
+>
+  <svg class="lucide lucide-upload-cloud size-8 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
+  <p class="text-sm font-medium" data-file-upload-prompt>{{ prompt }}</p>
+  {% if hint %}<p id="{{ input_id }}-hint" class="text-xs text-muted-foreground" data-file-upload-hint>{{ hint }}</p>{% endif %}
+  <input
+    id="{{ input_id }}"
+    class="sr-only"
+    type="file"
+    name="{{ name }}"
+    data-file-upload-input
+    {% if hint %}aria-describedby="{{ input_id }}-hint"{% endif %}
+    {% if accept %}accept="{{ accept }}"{% endif %}
+    {% if multiple %}multiple{% endif %}
+    {% if required %}required{% endif %}
+    {% if preview_id %}
+    data-preview-id="{{ preview_id }}"
+    {% if preview_container_id %}data-preview-container-id="{{ preview_container_id }}"{% endif %}
+    {% if remove_input_id %}data-remove-input-id="{{ remove_input_id }}"{% endif %}
+    {% endif %}
+  />
+</label>
+{% endmacro %}
