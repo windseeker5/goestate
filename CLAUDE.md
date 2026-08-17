@@ -36,6 +36,12 @@ python app.py                    # start the dev server (debug mode, auto-reload
 
 - `wsgi.py` is CLI/production-WSGI-only (`flask --app wsgi <cmd>`, gunicorn). Day-to-day dev always uses `python app.py`.
 - Server runs at `http://127.0.0.1:<FLASK_RUN_PORT>` (default 5001, check `.env`).
+  Keep `FLASK_RUN_HOST=127.0.0.1` unless you've confirmed the reverse proxy needs
+  otherwise — `python app.py` runs with `DEBUG=True`, and the Werkzeug debugger
+  exposes frame locals (including the `Authorization` header built in
+  `app/llm.py` with the LLM API key) to anyone who can reach the port. See
+  `docs/DEPLOYMENT_NETWORKING.md` for how this interacts with a Caddy/Docker
+  reverse proxy and how to triage "site unreachable from outside" reports.
 - **Do not start/stop/restart the dev server or kill its port** — assume it's already running under the developer's control; debug mode auto-reloads on save. If a change genuinely needs a manual restart, say so and stop.
 - Production/Gunicorn: `./venv/bin/gunicorn --config gunicorn.conf.py --bind 127.0.0.1:5001 wsgi:app`. The config sets a 600s timeout — scanned-PDF OCR via Docling can take minutes, and Gunicorn's default 30s timeout would otherwise 500 the upload mid-processing.
 - Rebuild CSS only when adding new Tailwind classes or upgrading Basecoat (`output.css` is committed, so this is optional for running the app): `npm install && npm run build:css` (or `npm run watch:css`).
