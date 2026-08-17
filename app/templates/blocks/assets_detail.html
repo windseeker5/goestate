@@ -1,5 +1,9 @@
 {% extends "layouts/app.html" %}
 {% from "components/page_header.html" import page_header %}
+{% from "components/document_table.html" import document_table %}
+{% from "components/file_upload.html" import file_upload %}
+{% from "components/empty_state.html" import empty_state %}
+{% from "components/alert.html" import alert %}
 
 {% block title %}{{ item.name }} – Estate Copilot{% endblock %}
 {% block breadcrumb %}
@@ -15,18 +19,14 @@
   action=('<a href="' ~ url_for("edit_asset", item_id=item.id) ~ '" class="btn" data-variant="outline">Edit</a>') if g.user.role == "admin" else None
 ) }}
 
+{% if error %}
+{{ alert(title="Photo not saved", message=error, variant="destructive") }}
+{% endif %}
+
 <div class="grid gap-4 md:grid-cols-3">
   <div class="card {{ 'md:col-span-2' if g.user.role == 'admin' else 'md:col-span-3' }}">
     <header><h2>Details</h2></header>
     <section>
-      {% if item.photo_path %}
-      <div class="mb-6">
-        <p class="mb-2 text-xs text-muted-foreground uppercase tracking-wide">Photo</p>
-        <a href="{{ url_for('view_asset_photo', item_id=item.id) }}" target="_blank" rel="noopener" class="block overflow-hidden rounded-lg border bg-muted/30">
-          <img src="{{ url_for('view_asset_photo', item_id=item.id) }}" alt="Photo of {{ item.name }}" class="max-h-[32rem] w-full object-contain" />
-        </a>
-      </div>
-      {% endif %}
       <dl class="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
         <div>
           <dt class="text-xs text-muted-foreground uppercase tracking-wide">Category</dt>
@@ -66,6 +66,103 @@
     </section>
   </div>
   {% endif %}
+
+  <div id="attachments" class="card md:col-span-3">
+    <header><h2>Attachments</h2><p>Photo and documents for this asset — documents are parsed and made searchable in chat automatically.</p></header>
+    <section class="grid gap-8">
+      <div>
+        <h3 class="mb-3 text-sm font-medium">Photo</h3>
+        {% if item.photo_path %}
+        <div class="mb-3 overflow-hidden rounded-lg border bg-muted/30">
+          <a href="{{ url_for('view_asset_photo', item_id=item.id) }}" target="_blank" rel="noopener">
+            <img src="{{ url_for('view_asset_photo', item_id=item.id) }}" alt="Photo of {{ item.name }}" class="max-h-96 w-full object-contain" />
+          </a>
+        </div>
+        {% endif %}
+        {% if g.user.role == "admin" %}
+        <form
+          id="asset-photo-upload-form"
+          method="post"
+          action="{{ url_for('upload_asset_photo', item_id=item.id) }}"
+          enctype="multipart/form-data"
+          class="mb-2"
+        >
+          {{ file_upload(
+            input_id="asset-photo-upload-input",
+            name="photo",
+            accept="image/jpeg,image/png,image/webp,image/heic,image/heif",
+            prompt="Replace photo" if item.photo_path else "Click to add a photo, or drag and drop",
+            hint="JPEG, PNG, WebP, HEIC, or HEIF. 15 MB maximum.",
+            required=true,
+            dropzone_id="asset-photo-upload-dropzone",
+            auto_submit=true,
+            loading_id="asset-photo-upload-loading",
+            loading_text_id="asset-photo-upload-loading-text",
+            submit_hint_id="asset-photo-upload-hint",
+            loading_single="Uploading your photo..."
+          ) }}
+        </form>
+        <div id="asset-photo-upload-loading" class="hidden flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-input p-8 text-center mb-2">
+          <svg class="lucide lucide-loader-circle size-8 text-muted-foreground animate-spin" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+          <p id="asset-photo-upload-loading-text" class="text-sm font-medium">Uploading your photo…</p>
+        </div>
+        <p id="asset-photo-upload-hint" class="text-xs text-muted-foreground mb-2">JPEG, PNG, WebP, HEIC, or HEIF. 15 MB maximum.</p>
+        {% if item.photo_path %}
+        <form method="post" action="{{ url_for('delete_asset_photo', item_id=item.id) }}" onsubmit="return confirm('Remove this photo?');">
+          <button type="submit" class="btn" data-variant="outline">Remove photo</button>
+        </form>
+        {% endif %}
+        {% elif not item.photo_path %}
+        <p class="text-sm text-muted-foreground">No photo attached.</p>
+        {% endif %}
+      </div>
+
+      <div>
+        <h3 class="mb-3 text-sm font-medium">Documents</h3>
+        {% if g.user.role == "admin" %}
+        <form
+          id="asset-documents-upload-form"
+          method="post"
+          action="{{ url_for('upload_asset_documents', item_id=item.id) }}"
+          enctype="multipart/form-data"
+          class="mb-4"
+        >
+          {{ file_upload(
+            input_id="asset-documents-upload-input",
+            name="documents",
+            accept="application/pdf",
+            prompt="Click to add documents, or drag and drop PDFs here",
+            hint="You can select multiple files at once",
+            multiple=true,
+            required=true,
+            dropzone_id="asset-documents-upload-dropzone",
+            auto_submit=true,
+            loading_id="asset-documents-upload-loading",
+            loading_text_id="asset-documents-upload-loading-text",
+            submit_hint_id="asset-documents-upload-hint",
+            loading_single="Processing your document...",
+            loading_multiple="Processing {count} documents..."
+          ) }}
+        </form>
+        <div id="asset-documents-upload-loading" class="hidden flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-input p-8 text-center mb-4">
+          <svg class="lucide lucide-loader-circle size-8 text-muted-foreground animate-spin" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+          <p id="asset-documents-upload-loading-text" class="text-sm font-medium">Processing your documents…</p>
+          <p class="text-xs text-muted-foreground">This can take a few minutes for several files — please don't close this tab.</p>
+        </div>
+        <p id="asset-documents-upload-hint" class="text-xs text-muted-foreground mb-4">Ingestion runs immediately after upload — parsing and embedding a typical PDF takes a few seconds each.</p>
+        {% endif %}
+
+        {% if documents %}
+        {{ document_table(documents, show_actions=(g.user.role == "admin")) }}
+        {% else %}
+        {{ empty_state(
+          title="No documents yet",
+          description="Attach a PDF above to make it part of this asset's record and searchable in chat."
+        ) }}
+        {% endif %}
+      </div>
+    </section>
+  </div>
 </div>
 
 {% endblock %}

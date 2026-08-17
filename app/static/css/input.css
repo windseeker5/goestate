@@ -154,9 +154,55 @@
     text-underline-offset: 0.125rem;
   }
 
+  /* Rotating rainbow border draws the eye to the latest chatbot answer. */
+  @property --border-angle {
+    syntax: '<angle>';
+    inherits: false;
+    initial-value: 0deg;
+  }
+
+  @keyframes rotate-border {
+    to {
+      --border-angle: 360deg;
+    }
+  }
+
+  #chat-answer-card {
+    border: 2px solid transparent;
+    background:
+      linear-gradient(var(--card), var(--card)) padding-box,
+      conic-gradient(
+        from var(--border-angle),
+        #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000
+      ) border-box;
+    animation: rotate-border 3s linear infinite;
+  }
+
   /* Closed Basecoat overlays must not widen the page while off-screen. */
   [data-popover][aria-hidden="true"] {
     display: none;
+  }
+
+  .dashboard-task-row {
+    transition: opacity 180ms ease-out, transform 180ms ease-out;
+  }
+
+  .dashboard-task-row.is-completing {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(0.5rem);
+  }
+
+  .dashboard-task-checkbox.input {
+    width: 1.125rem;
+    min-height: 1.125rem;
+    height: 1.125rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .dashboard-task-row {
+      transition: none;
+    }
   }
 
   .responsive-table .table {

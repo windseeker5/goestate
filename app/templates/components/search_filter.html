@@ -14,9 +14,10 @@
     show_submit  {bool}    Show an explicit submit button. Default false.
     submit_label {string}  Submit button text. Default "Search".
     class_       {string}  Additional form classes.
+    extra_params {dict}    Additional query parameters preserved on submit.
 #}
 {% from "basecoat/select.html.jinja" import select %}
-{% macro search_filter(action, q="", filters=[], show_submit=false, submit_label="Search", class_="") %}
+{% macro search_filter(action, q="", filters=[], show_submit=false, submit_label="Search", class_="", extra_params={}) %}
 {#
   flex-wrap (not a sm:flex-row breakpoint) so this reflows based on actual
   available width next to the sidebar, not raw viewport width — see the
@@ -26,6 +27,9 @@
   UI behavior. Filter selects always auto-submit on change.
 #}
 <form method="get" action="{{ action }}" class="flex flex-wrap items-center gap-3 mb-4 {{ class_ }}">
+  {% for name, value in extra_params.items() %}
+  {% if value %}<input type="hidden" name="{{ name }}" value="{{ value }}" />{% endif %}
+  {% endfor %}
   <div class="relative basis-full flex-1 min-w-0 sm:basis-auto sm:min-w-[200px]">
     <svg class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none lucide lucide-search" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
     <input

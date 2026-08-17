@@ -72,6 +72,28 @@
       </a>
     </section>
   </div>
+
+  <div class="card mt-6">
+    <header>
+      <h2>Export &amp; Backup</h2>
+      <p>Download a full database backup or export ledger data as CSV for spreadsheets.</p>
+    </header>
+    <section class="grid gap-4">
+      <a href="{{ url_for('backup_database') }}" class="btn" data-variant="outline">
+        <svg data-icon="inline-start" class="lucide lucide-database" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>
+        Download full backup (.db)
+      </a>
+      <div class="grid gap-2">
+        <p class="text-xs text-muted-foreground">Export as CSV (opens in Excel, Numbers, or Google Sheets via File &gt; Import):</p>
+        <div class="flex flex-wrap gap-2">
+          <a href="{{ url_for('export_assets_csv') }}" class="btn" data-variant="outline" data-size="sm">Assets</a>
+          <a href="{{ url_for('export_liabilities_csv') }}" class="btn" data-variant="outline" data-size="sm">Liabilities</a>
+          <a href="{{ url_for('export_events_csv') }}" class="btn" data-variant="outline" data-size="sm">Timeline</a>
+          <a href="{{ url_for('export_tasks_csv') }}" class="btn" data-variant="outline" data-size="sm">Tasks</a>
+        </div>
+      </div>
+    </section>
+  </div>
 </div>
 
 {% endblock %}
