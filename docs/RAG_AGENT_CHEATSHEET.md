@@ -24,7 +24,8 @@ User Question
      ▼
 [ SEARCH PHASE ]
      ├─ search_chunks()  → vector search over PDF chunks (SQLite-Vec)
-     └─ search_events()  → keyword SQL search over the events timeline
+     ├─ search_events()  → FTS5 full-text search over the events timeline
+     └─ search_tasks()   → FTS5 full-text search over the user's own tasks
      │
      ▼
 [ PROMPT BUILDER ]  →  _build_prompt() sandwiches Question + Context
@@ -41,11 +42,39 @@ User Question
 
 This is a **hybrid RAG** pattern:
 - **Vector search** (`search_chunks`) is great for conceptual/semantic
-  matches in long unstructured PDF text.
-- **Keyword SQL search** (`search_events`) is far more precise for small,
-  structured data (names, dates, IDs) where embeddings are overkill.
-- Both result sets are merged into one `sources` list and fed into the same
+  matches in long unstructured PDF text. The embedding model is
+  multilingual (`paraphrase-multilingual-MiniLM-L12-v2`) because the estate
+  corpus is French.
+- **Full-text search** (`search_events`, `search_tasks`) is far more precise
+  for small, structured data (names, dates, IDs) where embeddings are
+  overkill. It runs on SQLite's built-in **FTS5** with **bm25()** ranking.
+- All result sets are merged into one `sources` list and fed into the same
   prompt — this is standard practice, not a workaround.
+
+### Why FTS5 and not `LIKE '%keyword%'`
+
+This used to be a plain `LOWER(col) LIKE '%kw%'` query ordered by
+`event_date DESC`. It failed on a real question — *"Qui est le bénéficiaire de
+l'assurance vie ?"* — for three compounding reasons worth remembering:
+
+1. `LIKE '%est%'` matches **inside** words, so the French filler word "est"
+   matched 10 of 14 events. FTS5 tokenises on word boundaries instead.
+2. Ordering by date is **recency, not relevance**. The single event that
+   matched the rare term "bénéficiaire" ranked 4th and was cut by `LIMIT 3`.
+   `bm25()` scores rare terms far above common ones, so it now ranks 1st.
+3. Accents. `remove_diacritics 2` in the tokenizer means a user typing
+   "beneficiaire" still matches "bénéficiaire".
+
+The indexes are external-content tables (`content='events'`) kept in sync by
+triggers declared alongside them in `app/commands.py`. Because the triggers
+only fire on writes *after* they exist, `flask init-db` rebuilds both indexes —
+that is also the repair command if one ever drifts.
+
+**Events and tasks are not embedded**, only full-text indexed. A question
+phrased semantically ("who inherits the money?") will not reach a note that
+says "bénéficiaire" unless the words overlap. Embedding them too would mean
+making `doc_chunk_meta.document_id` nullable and turning `search_chunks()`'s
+`JOIN documents` into a `LEFT JOIN`.
 
 ---
 

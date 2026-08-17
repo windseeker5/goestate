@@ -76,14 +76,15 @@ def create_app(config_object=DevConfig):
 
     # Plain functions, one file per domain. No blueprints — this is a
     # single-user local app, so the extra indirection isn't worth it.
-    from app.routes import public, dashboard, assets, liabilities, events, documents, chat, users, tasks
+    from app.routes import public, dashboard, assets, liabilities, events, documents, chat, users, tasks, backup
 
-    for module in (public, dashboard, assets, liabilities, events, documents, chat, users, tasks):
+    for module in (public, dashboard, assets, liabilities, events, documents, chat, users, tasks, backup):
         module.register(app)
 
-    from app.commands import init_db_command, verify_vec_command
+    from app.commands import init_db_command, reindex_all_command, verify_vec_command
     app.cli.add_command(init_db_command)
     app.cli.add_command(verify_vec_command)
+    app.cli.add_command(reindex_all_command)
 
     from app.db import init_app as init_db_app
     init_db_app(app)

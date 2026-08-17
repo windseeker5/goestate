@@ -30,10 +30,20 @@ import struct
 # scripts/poc/README.md for details.
 os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
 
-# fastembed model — BAAI/bge-small-en-v1.5, 384-dim (same size as the old
-# MiniLM model, so no database migration needed if you're upgrading from
-# sentence-transformers). Runs on ONNX Runtime, no PyTorch required.
-EMBED_MODEL_ID = "BAAI/bge-small-en-v1.5"
+# fastembed model — 384-dim, runs on ONNX Runtime, no PyTorch required.
+#
+# Multilingual on purpose. The previous model here was BAAI/bge-small-en-v1.5,
+# where the "-en-" means English-only, while this estate's documents, timeline
+# notes and questions are all French. It half-worked on shared Latin roots but
+# handicapped every French query.
+#
+# paraphrase-multilingual-MiniLM-L12-v2 is also 384-dim, so doc_chunks stays
+# `float[384]` and pack_embedding()'s struct.pack("384f") is unchanged — no
+# vector-table migration. But same dimension is NOT the same vector space:
+# vectors written by the old model are meaningless to this one and will not
+# raise an error, they will just quietly return bad matches. After changing
+# this constant you MUST run `flask --app wsgi reindex-all`.
+EMBED_MODEL_ID = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 EMBED_DIM = 384
 
 _embed_model = None

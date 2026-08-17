@@ -19,7 +19,7 @@ See [`PRD.md`](PRD.md) for the full product requirements.
 | Styling | Tailwind CSS v4 (pre-compiled, no Node needed to run) |
 | Database | SQLite (stdlib) + [sqlite-vec](https://github.com/asg017/sqlite-vec) for vector search |
 | Document parsing | [Docling](https://github.com/docling-project/docling) — preserves table structure as Markdown |
-| Embeddings | [fastembed](https://github.com/qdrant/fastembed) `BAAI/bge-small-en-v1.5`, 384-dim, ONNX Runtime (no PyTorch), fully local/offline |
+| Embeddings | [fastembed](https://github.com/qdrant/fastembed) `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`, 384-dim, ONNX Runtime (no PyTorch), fully local/offline |
 | LLM | Any OpenAI-compatible `/v1/chat/completions` endpoint via raw `requests` — Ollama, LM Studio, OpenRouter, OpenAI |
 | Auth | Email+password session auth, `admin`/`viewer` roles, `/app/users` admin management |
 
@@ -153,7 +153,7 @@ Upload a PDF on `/app/documents` and it's ingested synchronously:
 1. **Docling** parses the PDF into Markdown, preserving table structure.
 2. **HybridChunker** (tokenizer-aware) splits it into chunks sized for the
    embedding model's context window.
-3. **fastembed** (`BAAI/bge-small-en-v1.5`) embeds each chunk locally — no
+3. **fastembed** (`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`) embeds each chunk locally — no
    network calls, no API keys, no PyTorch (runs on ONNX Runtime).
 4. Vectors go into `doc_chunks` (sqlite-vec), text + metadata into
    `doc_chunk_meta`.
