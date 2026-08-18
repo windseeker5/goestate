@@ -18,7 +18,7 @@ Being named the liquidator or executor of an estate (especially in jurisdictions
     *   Pure local `SQLite` for structured data (ledger, events).
     *   `sqlite-vec` extension for lightweight, entirely local vector search and RAG storage.
 *   **Document Parsing:** `Docling` (by IBM) – specifically chosen for its ability to accurately parse complex, table-heavy scanned documents (like bank statements and notary acts) into clean Markdown.
-*   **Embedding Model:** `fastembed` (by Qdrant) running `BAAI/bge-small-en-v1.5`, 384 dimensions.
+*   **Embedding Model:** `fastembed` (by Qdrant) running `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`, 384 dimensions.
     *   Chosen over `sentence-transformers` because it runs on ONNX Runtime instead of PyTorch (~200MB install vs. ~2GB), better matching the "ultra-light, no bloat" principle above, while offering better retrieval quality than the smaller `all-MiniLM-L6-v2` model.
     *   **Always local, regardless of which LLM provider is configured for chat.** This is a deliberate architectural separation: the embedding model and the chat LLM are independent, separately-swappable concerns. Embeddings never call out to OpenRouter, Ollama, or any other provider — only the LLM chat step does. This keeps the vector space stable if the user switches LLM providers later, and avoids sending entire document contents to a third party on every upload (only the top-k retrieved chunks for a given question ever reach the LLM, at chat time — see Section 4.3).
 *   **LLM Interaction:** Raw, direct Python requests (no SDKs, no LangChain) to any OpenAI-compatible `/v1/chat/completions` endpoint (Ollama, LM Studio, OpenRouter, OpenAI, etc.), configured by the user in the Settings Hub (Section 4.4).

@@ -62,12 +62,12 @@
           <label class="label" for="notes">Notes</label>
           <textarea class="input min-h-24" id="notes" name="notes">{{ values.notes if values else '' }}</textarea>
         </div>
+        {% if not is_edit %}
         <div class="grid gap-2">
           <label class="label" for="liability-photo-input">Photo</label>
-          <div id="liability-photo-preview-container" class="{{ '' if item and item.photo_path else 'hidden' }} overflow-hidden rounded-lg border bg-muted/30">
+          <div id="liability-photo-preview-container" class="hidden overflow-hidden rounded-lg border bg-muted/30">
             <img
               id="liability-photo-preview"
-              src="{{ url_for('view_liability_photo', item_id=item.id) if item and item.photo_path else '' }}"
               alt="Selected liability photo preview"
               class="max-h-80 w-full object-contain"
             />
@@ -76,19 +76,13 @@
             input_id="liability-photo-input",
             name="photo",
             accept="image/jpeg,image/png,image/webp,image/heic,image/heif",
-            prompt="Replace photo" if item and item.photo_path else "Add a photo",
+            prompt="Add a photo",
             hint="Choose one image from your photo library. 15 MB maximum.",
             preview_id="liability-photo-preview",
-            preview_container_id="liability-photo-preview-container",
-            remove_input_id="remove-liability-photo"
+            preview_container_id="liability-photo-preview-container"
           ) }}
-          {% if item and item.photo_path %}
-          <label class="flex items-center gap-2 text-sm text-muted-foreground" for="remove-liability-photo">
-            <input id="remove-liability-photo" type="checkbox" name="remove_photo" value="1" class="size-4 rounded border-input" />
-            Remove the current photo
-          </label>
-          {% endif %}
         </div>
+        {% endif %}
       </form>
     </section>
     <footer class="justify-end gap-2">
@@ -98,6 +92,16 @@
       </button>
     </footer>
   </div>
+  {% if is_edit %}
+  <p class="mt-3 text-sm text-muted-foreground">
+    Photo and documents are managed from the
+    <a href="{{ url_for('detail_liability', item_id=item.id) }}" class="hover:underline text-foreground">liability's detail page</a>.
+  </p>
+  {% else %}
+  <p class="mt-3 text-sm text-muted-foreground">
+    You can attach documents once the liability is created, from its detail page.
+  </p>
+  {% endif %}
 </div>
 
 {% endblock %}

@@ -30,6 +30,7 @@ copy .env.example .env           # then set ADMIN_EMAIL / LIQUIDATOR_PASSWORD
 
 flask --app wsgi init-db         # create tables + bootstrap first admin user (idempotent)
 flask --app wsgi verify-vec      # confirm sqlite-vec KNN search works end-to-end
+flask --app wsgi reindex-all     # re-parse + re-embed every document (after an EMBED_MODEL_ID change)
 
 python app.py                    # start the dev server (debug mode, auto-reloads)
 ```
@@ -42,8 +43,26 @@ python app.py                    # start the dev server (debug mode, auto-reload
   `app/llm.py` with the LLM API key) to anyone who can reach the port. See
   `docs/DEPLOYMENT_NETWORKING.md` for how this interacts with a Caddy/Docker
   reverse proxy and how to triage "site unreachable from outside" reports.
-- **Do not start/stop/restart the dev server or kill its port** — assume it's already running under the developer's control; debug mode auto-reloads on save. If a change genuinely needs a manual restart, say so and stop.
-- Production/Gunicorn: `./venv/bin/gunicorn --config gunicorn.conf.py --bind 127.0.0.1:5001 wsgi:app`. The config sets a 600s timeout — scanned-PDF OCR via Docling can take minutes, and Gunicorn's default 30s timeout would otherwise 500 the upload mid-processing.
+- **Do not start/stop/restart the dev server or kill its port** — assume it's already
+  running under the developer's control. Under `python app.py` debug mode auto-reloads
+  on save. If a change genuinely needs a manual restart, say so and stop.
+- **Before verifying anything in the browser, check what is actually serving the port:**
+  ```bash
+  ps -eo pid,lstart,cmd | grep "wsgi:app\|app\.py" | grep -v grep
+  ```
+  If **Gunicorn** is serving it, that is a dev misconfiguration, not something to work
+  around: Gunicorn has no `reload` (`gunicorn.conf.py`), so it serves whatever code it
+  loaded at startup and **your edits will not take effect**. Compare its start time to
+  the file mtimes. Tell the developer to restart it (`pkill -f "gunicorn.*wsgi:app"`,
+  then `python app.py`) — don't do it yourself, and don't report a browser result from
+  a server older than your edits. This has already caused one full verification pass to
+  report a working fix as broken.
+- Module-level caches are **per process**: `_embed_model` in `app/ingestion.py` holds the
+  loaded embedding model for the life of the worker. Changing `EMBED_MODEL_ID` therefore
+  needs a fresh process, not just a template/code reload — otherwise queries get embedded
+  with the old model and compared against new vectors, which fails silently with
+  plausible-looking but wrong results.
+- Production/Gunicorn only: `./venv/bin/gunicorn --config gunicorn.conf.py --bind 127.0.0.1:5001 wsgi:app`. The config sets a 600s timeout — scanned-PDF OCR via Docling can take minutes, and Gunicorn's default 30s timeout would otherwise 500 the upload mid-processing. The Flask dev server has no request timeout, so long OCR uploads work there too — there is no reason to run Gunicorn in development.
 - Rebuild CSS only when adding new Tailwind classes or upgrading Basecoat (`output.css` is committed, so this is optional for running the app): `npm install && npm run build:css` (or `npm run watch:css`).
 - No automated test suite exists. Verify changes by driving the running app with the Playwright MCP browser tool — do not claim a UI change works without checking it in the browser.
 
@@ -63,7 +82,7 @@ app/
   db.py           per-request SQLite connection (g.db) with sqlite-vec loaded;
                   open_db() for use outside a request context (CLI commands)
   commands.py     SCHEMA_SQL (source of truth for the schema) + flask init-db /
-                  flask verify-vec CLI commands
+                  flask verify-vec / flask reindex-all CLI commands
   ingestion.py    Docling -> HybridChunker -> fastembed -> sqlite-vec pipeline
   llm.py          raw-requests client for any OpenAI-compatible provider
   photo_storage.py  asset/liability photo upload validation, storage, serving
@@ -103,25 +122,43 @@ is the single source of truth; `flask init-db` is safe to re-run (`CREATE
 TABLE IF NOT EXISTS`) and also runs small manual `ALTER TABLE` migrations for
 columns added after a table already existed — when adding a column to an
 existing table, add both to `SCHEMA_SQL` *and* to the `migrations` tuple in
-`init_db_command`. Tables: `users`, `assets`, `liabilities`, `events`,
+`init_db_command`. Tables: `users`, `assets`, `liabilities`, `events`, `tasks`,
 `documents`, `settings` (LLM provider config), plus the RAG pair `doc_chunks`
-(sqlite-vec virtual table, 384-dim float embeddings) / `doc_chunk_meta`.
+(sqlite-vec virtual table, 384-dim float embeddings) / `doc_chunk_meta`, plus
+the FTS5 search indexes `events_fts` / `tasks_fts`.
+
+The FTS5 indexes are external-content tables kept in sync by `AFTER
+INSERT/UPDATE/DELETE` triggers declared next to them in `SCHEMA_SQL` — so
+event/task routes need no index-maintenance code. `init-db` rebuilds both every
+run (also the repair path if one drifts). If you add a searchable column to
+`events` or `tasks`, add it to the FTS table **and** to all three triggers; a
+`'delete'` command row must repeat the OLD values verbatim or the index
+corrupts.
 
 ### Document RAG pipeline
 
 Upload on `/app/documents` ingests synchronously (`app/ingestion.py`):
 Docling parses the PDF to Markdown (preserving table structure) → HybridChunker
 splits it token-aware for the embedding model's context window → fastembed
-(`BAAI/bge-small-en-v1.5`, 384-dim, ONNX Runtime — no PyTorch, no network)
-embeds each chunk → vectors go to `doc_chunks`, text+metadata to
-`doc_chunk_meta`. Embeddings are always local, deliberately decoupled from
-whichever chat LLM is configured — this keeps the vector space stable across
-LLM provider switches and avoids sending full documents to a third party.
+(`sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`, 384-dim, ONNX
+Runtime — no PyTorch, no network) embeds each chunk → vectors go to
+`doc_chunks`, text+metadata to `doc_chunk_meta`. The model is **multilingual on
+purpose** — the estate corpus is French. Embeddings are always local,
+deliberately decoupled from whichever chat LLM is configured — this keeps the
+vector space stable across LLM provider switches and avoids sending full
+documents to a third party.
+
+Changing `EMBED_MODEL_ID` invalidates every stored vector (same dimension ≠
+same vector space — it degrades silently rather than erroring), so always
+follow it with `flask --app wsgi reindex-all`.
 
 Chat (`/app/chat`, `app/routes/chat.py`) embeds the question with the same
-local model, does a sqlite-vec KNN search (`ingestion.search_chunks`) plus a
-keyword SQL search over the events timeline, sandwiches question + retrieved
-context into a prompt with a system-prompt agent personality, and calls
+local model, does a sqlite-vec KNN search (`ingestion.search_chunks`) plus an
+FTS5 full-text search over the events timeline and the user's tasks
+(`search_events` / `search_tasks`, ranked by `bm25()` — see the `events_fts` /
+`tasks_fts` tables and their sync triggers in `app/commands.py`), sandwiches
+question + retrieved context into a prompt with a system-prompt agent
+personality, and calls
 `app/llm.py::chat_completion()` against whatever provider is set on
 `/app/settings`. See `docs/RAG_AGENT_CHEATSHEET.md` for the full flow and the
 three customization points (retrieval, agent personality/skills, answer

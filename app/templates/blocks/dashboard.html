@@ -92,8 +92,6 @@
   "Note":    "outline"
 } %}
 
-{% set task_status_badge_variant = {"Open": "outline", "In Progress": "default", "Done": "secondary", "Cancelled": "secondary"} %}
-
 <div class="grid gap-4 md:grid-cols-2">
   <div class="card{{ ' md:col-span-2' if not upcoming_tasks else '' }}">
     <header><h2>Latest Activity</h2><p>Most recently logged timeline entries, across everyone with access.</p></header>
@@ -128,19 +126,24 @@
   <div class="card">
     <header><h2>My Tasks</h2><p>Open items you still need to handle.</p></header>
     <section>
-      {% set task_items = [] %}
       {% for row in upcoming_tasks %}
         {% set overdue = row.due_date and row.due_date < today %}
-        {% set _ = task_items.append({
-          "date": ("Overdue — " ~ row.due_date) if overdue else (row.due_date or "No due date"),
-          "title": row.title,
-          "description": row.priority ~ " priority",
-          "badge": row.status,
-          "badge_variant": "destructive" if overdue else task_status_badge_variant.get(row.status, "outline"),
-          "complete_action": url_for('toggle_task', item_id=row.id)
-        }) %}
+      <form method="post" action="{{ url_for('toggle_task', item_id=row.id) }}" class="dashboard-task-row flex items-start gap-3 py-3 first:pt-0 last:pb-0" data-dashboard-task>
+        <input
+          id="dashboard-task-{{ row.id }}"
+          type="checkbox"
+          class="input dashboard-task-checkbox mt-0.5 shrink-0"
+          data-task-complete
+        />
+        <label for="dashboard-task-{{ row.id }}" class="min-w-0 flex-1 cursor-pointer">
+          <span class="block break-words text-sm font-medium">{{ row.title }}</span>
+          <span class="mt-0.5 block text-xs {{ 'text-destructive' if overdue else 'text-muted-foreground' }}">
+            {{ ("Overdue · " ~ row.due_date) if overdue else (row.due_date or "No due date") }}
+          </span>
+          <span class="mt-1 block text-sm text-muted-foreground">{{ row.priority }} priority</span>
+        </label>
+      </form>
       {% endfor %}
-      {{ timeline(items=task_items) }}
     </section>
     <footer class="justify-end gap-2">
       <a href="{{ url_for('new_task') }}" class="btn" data-variant="outline" data-size="sm">+ Add task</a>

@@ -87,3 +87,17 @@ window.estateTheme = (() => {
 
   return { get, set, apply, resolve };
 })();
+
+// Completing a dashboard task is persisted server-side. A short exit state
+// confirms the checkbox action before the redirect removes the completed row.
+document.addEventListener("change", (event) => {
+  const checkbox = event.target.closest("[data-task-complete]");
+  if (!checkbox || !checkbox.checked) return;
+
+  const row = checkbox.closest("[data-dashboard-task]");
+  if (!row) return;
+
+  checkbox.disabled = true;
+  row.classList.add("is-completing");
+  window.setTimeout(() => checkbox.form.requestSubmit(), 240);
+});

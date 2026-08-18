@@ -4,6 +4,8 @@ Usage:
     flask init-db        Create all tables (safe to re-run — uses IF NOT EXISTS).
     flask verify-vec     Insert a test vector and run a KNN query to confirm
                          sqlite-vec is working end-to-end.
+    flask reindex-all    Re-parse and re-embed every uploaded document. Run this
+                         after changing EMBED_MODEL_ID.
 """
 
 import os
@@ -137,7 +139,8 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
 -- ──────────────────────────────────────────────────────────
 -- sqlite-vec stores vectors in a virtual table (vec0).
 -- Metadata is kept in a paired regular table joined by rowid.
--- Embedding dimension: 384 (BAAI/bge-small-en-v1.5 via fastembed).
+-- Embedding dimension: 384 (paraphrase-multilingual-MiniLM-L12-v2 via
+-- fastembed — multilingual, since the estate corpus is French).
 
 CREATE VIRTUAL TABLE IF NOT EXISTS doc_chunks USING vec0(
     embedding float[384]
@@ -151,6 +154,76 @@ CREATE TABLE IF NOT EXISTS doc_chunk_meta (
     chunk_text          TEXT    NOT NULL,
     chunk_index         INTEGER DEFAULT 0      -- position within the document
 );
+
+-- ──────────────────────────────────────────────────────────
+-- Full-text search over the structured records (events, tasks)
+-- ──────────────────────────────────────────────────────────
+-- Events and tasks are small structured rows, so they are searched with
+-- keywords rather than embeddings (see app/routes/chat.py). The naive
+-- `LOWER(col) LIKE '%kw%'` this replaces had two fatal flaws: it matched
+-- inside words (French "est" hit 10 of 14 events as a substring) and it had
+-- no notion of relevance, so results were ordered by date and the one event
+-- that actually matched a rare term got crowded out by recent noise.
+--
+-- FTS5 fixes both. It tokenises on word boundaries, and bm25() ranks rare
+-- terms ("bénéficiaire") far above common ones ("est") automatically.
+-- `remove_diacritics 2` is the Unicode-aware variant (1 is legacy/ASCII-only)
+-- and is what lets an unaccented query — "beneficiaire", how people actually
+-- type — match accented text.
+--
+-- These are external-content tables (content='events'): FTS5 stores only the
+-- index and reads column values back from the source table, so there is no
+-- duplicated copy of the notes. That makes the sync triggers below mandatory
+-- rather than optional — without them the index silently drifts.
+
+CREATE VIRTUAL TABLE IF NOT EXISTS events_fts USING fts5(
+    title, contact, notes, type,
+    content='events',
+    content_rowid='id',
+    tokenize="unicode61 remove_diacritics 2"
+);
+
+CREATE TRIGGER IF NOT EXISTS events_fts_ai AFTER INSERT ON events BEGIN
+    INSERT INTO events_fts(rowid, title, contact, notes, type)
+    VALUES (new.id, new.title, new.contact, new.notes, new.type);
+END;
+
+-- The 'delete' command row must repeat the OLD column values verbatim so FTS5
+-- can find and unpick the exact terms it indexed; passing the new values here
+-- is the classic way to corrupt an external-content index.
+CREATE TRIGGER IF NOT EXISTS events_fts_ad AFTER DELETE ON events BEGIN
+    INSERT INTO events_fts(events_fts, rowid, title, contact, notes, type)
+    VALUES ('delete', old.id, old.title, old.contact, old.notes, old.type);
+END;
+
+CREATE TRIGGER IF NOT EXISTS events_fts_au AFTER UPDATE ON events BEGIN
+    INSERT INTO events_fts(events_fts, rowid, title, contact, notes, type)
+    VALUES ('delete', old.id, old.title, old.contact, old.notes, old.type);
+    INSERT INTO events_fts(rowid, title, contact, notes, type)
+    VALUES (new.id, new.title, new.contact, new.notes, new.type);
+END;
+
+CREATE VIRTUAL TABLE IF NOT EXISTS tasks_fts USING fts5(
+    title, notes,
+    content='tasks',
+    content_rowid='id',
+    tokenize="unicode61 remove_diacritics 2"
+);
+
+CREATE TRIGGER IF NOT EXISTS tasks_fts_ai AFTER INSERT ON tasks BEGIN
+    INSERT INTO tasks_fts(rowid, title, notes) VALUES (new.id, new.title, new.notes);
+END;
+
+CREATE TRIGGER IF NOT EXISTS tasks_fts_ad AFTER DELETE ON tasks BEGIN
+    INSERT INTO tasks_fts(tasks_fts, rowid, title, notes)
+    VALUES ('delete', old.id, old.title, old.notes);
+END;
+
+CREATE TRIGGER IF NOT EXISTS tasks_fts_au AFTER UPDATE ON tasks BEGIN
+    INSERT INTO tasks_fts(tasks_fts, rowid, title, notes)
+    VALUES ('delete', old.id, old.title, old.notes);
+    INSERT INTO tasks_fts(rowid, title, notes) VALUES (new.id, new.title, new.notes);
+END;
 """
 
 
@@ -186,9 +259,28 @@ def init_db_command():
                 db.commit()
                 click.echo(click.style(f"  [OK] Migrated: added {table}.{column} column.", fg="green"))
 
+        # Backfill the FTS indexes. The sync triggers only fire on rows written
+        # after the triggers exist, so an existing database would otherwise have
+        # empty indexes and chat would find no events or tasks at all.
+        #
+        # This rebuilds unconditionally rather than skipping when already
+        # populated. There is no cheap way to ask an external-content FTS5 table
+        # whether its index is empty — COUNT(*) reads through to the content
+        # table and reports the source row count even when nothing is indexed —
+        # and these tables are small enough that rebuilding is instant. It also
+        # makes `init-db` the repair path if an index ever drifts out of sync.
+        for fts_table, source in (("events_fts", "events"), ("tasks_fts", "tasks")):
+            db.execute(f"INSERT INTO {fts_table}({fts_table}) VALUES('rebuild')")
+            db.commit()
+            indexed = db.execute(f"SELECT COUNT(*) FROM {source}").fetchone()[0]
+            click.echo(click.style(
+                f"  [OK] Built {fts_table} search index ({indexed} rows).", fg="green"
+            ))
+
         click.echo(click.style("  [OK] Database initialised.", fg="green"))
         click.echo(click.style("       Tables: users, assets, liabilities, events, tasks, documents,", dim=True))
-        click.echo(click.style("               settings, doc_chunks, doc_chunk_meta", dim=True))
+        click.echo(click.style("               settings, doc_chunks, doc_chunk_meta,", dim=True))
+        click.echo(click.style("               events_fts, tasks_fts", dim=True))
 
         # Print sqlite-vec version as confirmation the extension loaded.
         vec_version = db.execute("SELECT vec_version()").fetchone()[0]
@@ -213,6 +305,86 @@ def init_db_command():
                     "both set in .env — skipping admin bootstrap. Set both and re-run `flask init-db`.",
                     fg="yellow",
                 ))
+    finally:
+        db.close()
+
+
+@click.command("reindex-all")
+@with_appcontext
+def reindex_all_command():
+    """Re-parse and re-embed every uploaded document.
+
+    Needed after changing EMBED_MODEL_ID: the stored vectors keep the same 384
+    dimensions, so nothing errors, but they belong to the old model's vector
+    space and comparing them against new queries silently returns nonsense.
+    The per-document reindex button on /app/documents only handles one file at
+    a time, which is impractical for a whole corpus.
+    """
+    from app.document_storage import documents_uploads_dir
+    from app.ingestion import EMBED_MODEL_ID, ingest_document
+
+    db = open_db()
+    try:
+        docs = db.execute(
+            "SELECT id, filename, filepath, linked_entity_type, linked_entity_id "
+            "FROM documents ORDER BY id"
+        ).fetchall()
+        if not docs:
+            click.echo(click.style("  [!!] No documents to reindex.", fg="yellow"))
+            return
+
+        click.echo(click.style(f"  Embedding model: {EMBED_MODEL_ID}", dim=True))
+        click.echo(click.style(
+            "  First run downloads the ONNX model (a few hundred MB) — this can take a while.",
+            dim=True,
+        ))
+
+        uploads_dir = documents_uploads_dir()
+        succeeded = failed = missing = 0
+
+        for doc in docs:
+            path = os.path.join(uploads_dir, doc["filepath"])
+            if not os.path.exists(path):
+                db.execute(
+                    "UPDATE documents SET ingestion_status = 'error', ingestion_error = ? WHERE id = ?",
+                    ("Original file no longer exists on disk.", doc["id"]),
+                )
+                db.commit()
+                missing += 1
+                click.echo(click.style(f"  [!!] {doc['filename']} — file missing on disk", fg="yellow"))
+                continue
+
+            click.echo(f"  ... {doc['filename']}")
+            # Pass the existing linkage through — ingest_document() rebuilds
+            # every doc_chunk_meta row for this document from scratch, so
+            # omitting these would drop the asset/liability attribution.
+            ingest_document(
+                db,
+                doc["id"],
+                path,
+                linked_entity_type=doc["linked_entity_type"],
+                linked_entity_id=doc["linked_entity_id"],
+            )
+            row = db.execute(
+                "SELECT ingestion_status, ingestion_error FROM documents WHERE id = ?", (doc["id"],)
+            ).fetchone()
+            # ingest_document() swallows exceptions and records them on the row,
+            # so the status column is the only way to tell success from failure.
+            if row["ingestion_status"] == "embedded":
+                succeeded += 1
+                click.echo(click.style(f"  [OK] {doc['filename']}", fg="green"))
+            else:
+                failed += 1
+                click.echo(click.style(
+                    f"  [!!] {doc['filename']} — {row['ingestion_error'] or 'unknown error'}", fg="red"
+                ))
+
+        chunk_count = db.execute("SELECT COUNT(*) FROM doc_chunk_meta").fetchone()[0]
+        click.echo(click.style(
+            f"  Done: {succeeded} embedded, {failed} failed, {missing} missing "
+            f"— {chunk_count} chunks total.",
+            fg="green" if not (failed or missing) else "yellow",
+        ))
     finally:
         db.close()
 

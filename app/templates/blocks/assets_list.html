@@ -36,11 +36,19 @@
 {% call(row) data_table(columns=columns, rows=assets, sort=sort, order=order, base_url=url_for("list_assets"), responsive=true) %}
   {% call table_cell("Date", numeric=true, class_="text-muted-foreground") %}{{ row.created_at.split("T")[0] if row.created_at else "—" }}{% endcall %}
   {% call table_cell("Name", primary=true, summary=true, summary_title=row.name, class_="font-medium") %}
-    {% if row.photo_path %}
-    <a href="{{ url_for('view_asset_photo', item_id=row.id) }}" target="_blank" rel="noopener" class="hover:underline">{{ row.name }}</a>
-    {% else %}
-    {{ row.name }}
-    {% endif %}
+    <span class="inline-flex items-center gap-1.5">
+      {{ row.name }}
+      {% if row.photo_path %}
+      <a href="{{ url_for('view_asset_photo', item_id=row.id) }}" target="_blank" rel="noopener" class="text-muted-foreground hover:text-foreground" title="Photo attached" aria-label="Photo attached">
+        <svg class="lucide lucide-image size-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+      </a>
+      {% endif %}
+      {% if row.document_id %}
+      <a href="{{ url_for('detail_asset', item_id=row.id) }}#attachments" class="text-muted-foreground hover:text-foreground" title="Document attached" aria-label="Document attached">
+        <svg class="lucide lucide-paperclip size-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.234 20.252 21 12.3"/><path d="m16 6-8.414 8.586a2 2 0 0 0 0 2.828 2 2 0 0 0 2.828 0l8.414-8.586a4 4 0 0 0 0-5.656 4 4 0 0 0-5.656 0l-8.415 8.585a6 6 0 1 0 8.486 8.486"/></svg>
+      </a>
+      {% endif %}
+    </span>
   {% endcall %}
   {% call table_cell("Category") %}{{ row.category or "—" }}{% endcall %}
   {% call table_cell("Estimated value", numeric=true, class_="text-end") %}{{ row.estimated_value|money(zero_blank=true) }}{% endcall %}

@@ -30,6 +30,7 @@
     responsive {bool}           Default false. Converts rows to labeled records
                                 at narrow widths. Use table_cell() for cells.
     class_     {string}         Additional classes for the table wrapper.
+    extra_params {dict}         Query parameters preserved by sort links.
 #}
 {% macro table_cell(label, primary=false, secondary=false, summary=false, summary_title=None, action=false, hide_label=false, numeric=false, class_="") %}
 <td
@@ -45,7 +46,7 @@
 </td>
 {% endmacro %}
 
-{% macro data_table(columns, rows, sort=None, order="asc", base_url="", caption=None, scrollable=true, responsive=false, class_="") %}
+{% macro data_table(columns, rows, sort=None, order="asc", base_url="", caption=None, scrollable=true, responsive=false, class_="", extra_params={}) %}
 {#
   Responsive tables use labeled records at narrow widths. Their wrapper stays
   unclipped so inline Basecoat action menus remain usable.
@@ -60,7 +61,8 @@
         <th class="{{ 'text-end' if align == 'end' else '' }} {{ col.get('class_', '') }}">
           {% if col.get("sortable") %}
             {% set next_order = "desc" if (sort == col.key and order == "asc") else "asc" %}
-            <a href="{{ base_url }}?sort={{ col.key }}&order={{ next_order }}" class="inline-flex items-center gap-1 hover:text-foreground text-muted-foreground font-medium {{ 'justify-end w-full' if align == 'end' else '' }}">
+            {% set qs_base %}{% for key, value in extra_params.items() %}{% if value %}&{{ key | urlencode }}={{ value | urlencode }}{% endif %}{% endfor %}{% endset %}
+            <a href="{{ base_url }}?sort={{ col.key }}&order={{ next_order }}{{ qs_base }}" class="inline-flex items-center gap-1 hover:text-foreground text-muted-foreground font-medium {{ 'justify-end w-full' if align == 'end' else '' }}">
               {{ col.label }}
               {% if sort == col.key %}
                 {% if order == "asc" %}
