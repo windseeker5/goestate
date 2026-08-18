@@ -20,10 +20,61 @@
 
 {{ search_filter(
   action=url_for("list_tasks"),
-  q=q
+  q=q,
+  extra_params={"status": status, "priority": priority, "sort": sort, "order": order}
 ) }}
 
-<p class="text-sm text-muted-foreground mb-3">{{ total }} record{{ "s" if total != 1 else "" }}</p>
+<nav aria-label="Filter tasks" class="mb-4 flex flex-col gap-2 xl:flex-row xl:items-center xl:gap-4">
+  <div class="flex items-center gap-2 overflow-x-auto pb-1 xl:pb-0">
+    <span class="shrink-0 text-sm font-medium text-muted-foreground">Status</span>
+    <div class="flex min-w-max gap-1" role="group" aria-label="Filter by status">
+      <a
+        href="{{ url_for('list_tasks', q=q, status='', priority=priority, sort=sort, order=order) }}"
+        class="btn"
+        data-size="xs"
+        data-variant="{{ 'primary' if not status else 'outline' }}"
+        {% if not status %}aria-current="true"{% endif %}
+      >All</a>
+      {% for value in statuses %}
+      <a
+        href="{{ url_for('list_tasks', q=q, status=value, priority=priority, sort=sort, order=order) }}"
+        class="btn"
+        data-size="xs"
+        data-variant="{{ 'primary' if status == value else 'outline' }}"
+        {% if status == value %}aria-current="true"{% endif %}
+      >{{ value }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="flex items-center gap-2 overflow-x-auto pb-1 xl:pb-0">
+    <span class="shrink-0 text-sm font-medium text-muted-foreground">Priority</span>
+    <div class="flex min-w-max gap-1" role="group" aria-label="Filter by priority">
+      <a
+        href="{{ url_for('list_tasks', q=q, status=status, priority='', sort=sort, order=order) }}"
+        class="btn"
+        data-size="xs"
+        data-variant="{{ 'primary' if not priority else 'outline' }}"
+        {% if not priority %}aria-current="true"{% endif %}
+      >Any</a>
+      {% for value in priorities %}
+      <a
+        href="{{ url_for('list_tasks', q=q, status=status, priority=value, sort=sort, order=order) }}"
+        class="btn"
+        data-size="xs"
+        data-variant="{{ 'primary' if priority == value else 'outline' }}"
+        {% if priority == value %}aria-current="true"{% endif %}
+      >{{ value }}</a>
+      {% endfor %}
+    </div>
+  </div>
+</nav>
+
+{% set active_filters = [] %}
+{% if status %}{% set _ = active_filters.append(status | lower) %}{% endif %}
+{% if priority %}{% set _ = active_filters.append(priority | lower ~ '-priority') %}{% endif %}
+<p class="text-sm text-muted-foreground mb-3">
+  Showing {{ total }} {% if active_filters %}{{ active_filters | join(', ') }} {% endif %}task{{ "s" if total != 1 else "" }}
+</p>
 
 {% set columns = [
   {"key": "due_date", "label": "Due Date", "sortable": true, "class_": "w-28"},
@@ -33,7 +84,7 @@
   {"key": "_actions", "label": "",         "sortable": false, "align": "end", "class_": "w-28"}
 ] %}
 
-{% call(row) data_table(columns=columns, rows=tasks, sort=sort, order=order, base_url=url_for("list_tasks"), responsive=true) %}
+{% call(row) data_table(columns=columns, rows=tasks, sort=sort, order=order, base_url=url_for("list_tasks"), responsive=true, extra_params={"q": q, "status": status, "priority": priority}) %}
   {% call table_cell("Due date", numeric=true, class_="text-muted-foreground") %}{{ row.due_date or "—" }}{% endcall %}
   {% call table_cell("Title", primary=true, summary=true, summary_title=row.title, class_="font-medium") %}{{ row.title }}{% endcall %}
   {% call table_cell("Priority") %}
@@ -62,7 +113,7 @@
   page=page,
   total_pages=total_pages,
   base_url=url_for("list_tasks"),
-  extra_params={"q": q, "sort": sort, "order": order}
+  extra_params={"q": q, "status": status, "priority": priority, "sort": sort, "order": order}
 ) }}
 
 {% endblock %}

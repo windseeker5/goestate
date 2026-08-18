@@ -23,11 +23,22 @@ def register(app):
     def list_tasks():
         db = get_db()
         q = request.args.get("q", "")
+        status = request.args.get("status", "")
+        priority = request.args.get("priority", "")
         sort = request.args.get("sort", "due_date")
         order = request.args.get("order", "asc")
         page = max(1, int(request.args.get("page", 1)))
 
+        # Ignore stale or hand-edited filter values rather than returning an
+        # unexpectedly empty task list.
+        status = status if status in STATUSES else ""
+        priority = priority if priority in PRIORITIES else ""
+
         rows = db.execute("SELECT * FROM tasks WHERE user_id = ?", (g.user["id"],)).fetchall()
+        if status:
+            rows = [row for row in rows if row["status"] == status]
+        if priority:
+            rows = [row for row in rows if row["priority"] == priority]
         rows = _filter_sort(rows, q, sort, order)
 
         total = len(rows)
@@ -39,6 +50,10 @@ def register(app):
             "blocks/tasks_list.html",
             tasks=rows,
             q=q,
+            status=status,
+            priority=priority,
+            priorities=PRIORITIES[::-1],
+            statuses=STATUSES,
             sort=sort,
             order=order,
             page=page,

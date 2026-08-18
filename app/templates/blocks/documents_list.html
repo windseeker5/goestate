@@ -1,7 +1,7 @@
 {% extends "layouts/app.html" %}
 {% from "components/page_header.html" import page_header %}
 {% from "components/empty_state.html" import empty_state %}
-{% from "components/action_menu.html" import action_menu %}
+{% from "components/document_table.html" import document_table %}
 {% from "components/file_upload.html" import file_upload %}
 
 {% block title %}Documents – Estate Copilot{% endblock %}
@@ -72,80 +72,7 @@
 {% endif %}
 
 {% if documents %}
-<div class="responsive-table rounded-lg border bg-background">
-  <table class="table table-fixed">
-    <thead>
-      <tr>
-        <th class="w-28">Uploaded</th>
-        <th>Filename</th>
-        <th class="w-28">Status</th>
-        {% if g.user.role == "admin" %}<th class="w-28 text-end"></th>{% endif %}
-      </tr>
-    </thead>
-    <tbody>
-      {% for doc in documents %}
-      <tr>
-        <td data-label="Uploaded" class="text-muted-foreground">{{ doc.created_at.split("T")[0] if doc.created_at else "—" }}</td>
-        <td data-label="Filename" data-cell-primary class="font-medium">
-          {% if doc.filepath %}
-          <a href="{{ url_for('view_document', document_id=doc.id) }}" target="_blank" rel="noopener" class="table-cell-summary hover:underline text-foreground" title="{{ doc.filename }}">{{ doc.filename }}</a>
-          {% else %}
-          <span class="table-cell-summary" title="{{ doc.filename }}">{{ doc.filename }}</span>
-          {% endif %}
-        </td>
-        <td data-label="Status">
-          {% if doc.ingestion_status == 'embedded' %}
-          <span class="badge" data-variant="secondary">Embedded</span>
-          {% elif doc.ingestion_status == 'parsed' %}
-          <span class="badge" data-variant="outline">Parsed</span>
-          {% elif doc.ingestion_status == 'error' %}
-          <span class="badge" data-variant="destructive" title="{{ doc.ingestion_error }}">Error</span>
-          {% else %}
-          <span class="badge" data-variant="outline">Pending</span>
-          {% endif %}
-        </td>
-        {% if g.user.role == "admin" %}
-        <td data-label="Actions" data-cell-action class="text-end">
-          {# Hidden forms carry out the actual POST actions; the dropdown
-             menu below just triggers them. Keeping them as real <form>
-             elements (not fetch/JS) means this still works if JS is slow
-             to load, and matches the rest of the app's server-rendered,
-             no-SPA approach. #}
-          <form id="reindex-form-{{ doc.id }}" method="post" action="{{ url_for('reindex_document', document_id=doc.id) }}" class="hidden"></form>
-          <form id="delete-form-{{ doc.id }}" method="post" action="{{ url_for('delete_document', document_id=doc.id) }}" class="hidden"></form>
-          {% set doc_actions = [] %}
-          {% if doc.filepath %}
-            {% set _ = doc_actions.append({
-              "label": "View",
-              "url": url_for('view_document', document_id=doc.id),
-              "icon": '<svg class="lucide lucide-eye" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></svg>',
-              "attrs": {"target": "_blank", "rel": "noopener"}
-            }) %}
-          {% endif %}
-          {% set _ = doc_actions.append({
-            "label": "Re-index",
-            "icon": '<svg class="lucide lucide-refresh-cw" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>',
-            "attrs": {"onclick": "document.getElementById('reindex-form-" ~ doc.id ~ "').submit()"}
-          }) %}
-          {% set _ = doc_actions.append({"type": "separator"}) %}
-          {% set _ = doc_actions.append({
-            "label": "Delete",
-            "icon": '<svg class="lucide lucide-trash-2" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
-            "attrs": {"class": "text-destructive", "onclick": "if(confirm('Delete this document and its indexed chunks?')) document.getElementById('delete-form-" ~ doc.id ~ "').submit()"}
-          }) %}
-          {{ action_menu(id="doc-actions-" ~ doc.id, items=doc_actions) }}
-        </td>
-        {% endif %}
-      </tr>
-      {% if doc.ingestion_status == 'error' and doc.ingestion_error %}
-      <tr>
-        <td colspan="{{ 4 if g.user.role == 'admin' else 3 }}" class="text-xs text-destructive pb-3">{{ doc.ingestion_error }}</td>
-      </tr>
-      {% endif %}
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+{{ document_table(documents, show_actions=(g.user.role == "admin"), show_linked_column=true) }}
 {% else %}
 {{ empty_state(
   title="No documents yet",

@@ -9,7 +9,7 @@
 
 {{ page_header(
   title="Chat with Estelle",
-  description="Ask about uploaded estate documents, logged timeline events, or your tasks. Answers link back to their sources."
+  description="Ask about uploaded estate documents, the asset and liability ledger, logged timeline events, or your tasks. Answers link back to their sources."
 ) }}
 
 {% if error %}
@@ -25,7 +25,7 @@
       id="chat-question"
       class="text-base py-3"
       name="question"
-      placeholder="Ask Estelle about a document, timeline event, or task"
+      placeholder="Ask Estelle about a document, an asset or debt, a timeline event, or a task"
       required
       autofocus
       rows="1"
@@ -49,7 +49,7 @@
    round-trip can take several seconds with zero other feedback otherwise. #}
 <div id="chat-loading" class="hidden mb-6 flex items-center gap-3 rounded-lg border p-4 text-sm text-muted-foreground">
   <svg class="lucide lucide-loader-circle size-4 animate-spin shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
-  <span>Searching documents and timeline, then asking the model&hellip;</span>
+  <span>Searching documents, ledger, timeline and tasks, then asking the model&hellip;</span>
 </div>
 
 {% if answer %}
@@ -75,17 +75,25 @@
           <a href="{{ url_for('detail_event', item_id=s.linked_entity_id) }}" target="_blank" rel="noopener" class="text-xs font-medium uppercase tracking-wide truncate hover:underline" onclick="event.stopPropagation()">{{ s.filename }}</a>
           {% elif s.linked_entity_type == "task" %}
           <a href="{{ url_for('detail_task', item_id=s.linked_entity_id) }}" target="_blank" rel="noopener" class="text-xs font-medium uppercase tracking-wide truncate hover:underline" onclick="event.stopPropagation()">{{ s.filename }}</a>
+          {% elif s.linked_entity_type == "ledger" %}
+          {# Ledger blocks cover the whole table, so they link to the list page, not a row. #}
+          <a href="{{ url_for(s.linked_entity_endpoint) }}" target="_blank" rel="noopener" class="text-xs font-medium uppercase tracking-wide truncate hover:underline" onclick="event.stopPropagation()">{{ s.filename }}</a>
           {% else %}
           <span class="text-xs font-medium text-muted-foreground uppercase tracking-wide truncate">{{ s.filename }}</span>
           {% endif %}
         </span>
         <span class="flex items-center gap-2 shrink-0">
+          {% if s.linked_entity_name %}
+          <a href="{{ url_for(s.linked_entity_endpoint, item_id=s.linked_entity_id) }}" target="_blank" rel="noopener" class="badge shrink-0" data-variant="outline" onclick="event.stopPropagation()">{{ s.linked_entity_name }}</a>
+          {% endif %}
           {% if s.distance is not none %}
           <span class="badge" data-variant="outline">distance {{ "%.3f"|format(s.distance) }}</span>
           {% elif s.linked_entity_type == "event" %}
           <span class="badge" data-variant="secondary">timeline</span>
           {% elif s.linked_entity_type == "task" %}
           <span class="badge" data-variant="secondary">task</span>
+          {% elif s.linked_entity_type == "ledger" %}
+          <span class="badge" data-variant="secondary">ledger</span>
           {% endif %}
           <svg class="lucide lucide-chevron-down size-4 text-muted-foreground transition-transform group-open:rotate-180" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
         </span>
