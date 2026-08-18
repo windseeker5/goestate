@@ -193,6 +193,7 @@ To add a new page:
   `admin123` unless the developer gives different credentials.
 - Navigate to `http://127.0.0.1:5001` (or the configured `FLASK_RUN_PORT`) as the starting point.
 - Report findings from Playwright — do not guess behavior from code alone.
+- **Ad-hoc scripts and screenshots go in `test/`, never the repo root.** Any throwaway Python script or screenshot produced while debugging/verifying belongs in `test/` (gitignored) — don't leave `*.png` or one-off `.py` files loose at the top level.
 
 ---
 

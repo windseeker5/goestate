@@ -30,6 +30,9 @@ Thumbs.db
 # Playwright MCP debug artifacts
 .playwright-mcp/
 
+# Ad-hoc debug scripts and screenshots (see CLAUDE.md / AGENTS.md)
+test/
+
 # Local agent/tooling workspace
 .opencode/
 

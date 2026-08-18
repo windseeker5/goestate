@@ -65,6 +65,7 @@ python app.py                    # start the dev server (debug mode, auto-reload
 - Production/Gunicorn only: `./venv/bin/gunicorn --config gunicorn.conf.py --bind 127.0.0.1:5001 wsgi:app`. The config sets a 600s timeout — scanned-PDF OCR via Docling can take minutes, and Gunicorn's default 30s timeout would otherwise 500 the upload mid-processing. The Flask dev server has no request timeout, so long OCR uploads work there too — there is no reason to run Gunicorn in development.
 - Rebuild CSS only when adding new Tailwind classes or upgrading Basecoat (`output.css` is committed, so this is optional for running the app): `npm install && npm run build:css` (or `npm run watch:css`).
 - No automated test suite exists. Verify changes by driving the running app with the Playwright MCP browser tool — do not claim a UI change works without checking it in the browser.
+- **Ad-hoc scripts and screenshots go in `test/`, never the repo root.** Any throwaway Python script or screenshot produced while debugging/verifying belongs in `test/` (gitignored) — don't leave `*.png` or one-off `.py` files loose at the top level.
 
 ## Architecture
 
