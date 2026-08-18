@@ -47,8 +47,15 @@ python app.py                    # start the dev server (debug mode)
 Open **http://localhost:5001** (port comes from `FLASK_RUN_PORT` in `.env`,
 defaults to 5001 per `.env.example`).
 
-If you are proxying through Docker/Caddy, keep `FLASK_RUN_HOST=0.0.0.0` so the
-proxy container can reach the Flask app on the host.
+Keep `FLASK_RUN_HOST=127.0.0.1` in almost all cases — `python app.py` runs with
+`DEBUG=True`, and `0.0.0.0` exposes the Werkzeug interactive debugger (and the
+LLM API key it can leak via `app/llm.py`'s frame locals) to the whole LAN. If
+you're proxying through Caddy/Docker with `network_mode: host` (the common
+case — see `docs/DEPLOYMENT_NETWORKING.md`), the proxy shares the host's
+loopback, so `127.0.0.1` already works and `0.0.0.0` is unnecessary. Only a
+bridge-networked proxy container needs the app reachable on something other
+than loopback, and even then prefer binding to the Docker bridge gateway IP
+over `0.0.0.0`.
 
 `init-db` and `verify-vec` are CLI-only commands, run via `flask --app
 wsgi`. Day-to-day, just use `python app.py` to start the server.
