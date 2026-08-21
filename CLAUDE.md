@@ -62,6 +62,11 @@ python app.py                    # start the dev server (debug mode, auto-reload
   needs a fresh process, not just a template/code reload — otherwise queries get embedded
   with the old model and compared against new vectors, which fails silently with
   plausible-looking but wrong results.
+- fastembed's on-disk weight cache is separate from this and defaults to a tempdir path,
+  not `~/.cache/huggingface` (unlike Docling/`transformers`, which do use the home-dir HF
+  cache). On systems where `/tmp` is tmpfs, that default gets wiped on every reboot,
+  forcing a ~252MB re-download from Hugging Face Hub on the next chat/embedding call.
+  Set `FASTEMBED_CACHE_PATH` in `.env` to a persistent directory to avoid this.
 - Production/Gunicorn only: `./venv/bin/gunicorn --config gunicorn.conf.py --bind 127.0.0.1:5001 wsgi:app`. The config sets a 600s timeout — scanned-PDF OCR via Docling can take minutes, and Gunicorn's default 30s timeout would otherwise 500 the upload mid-processing. The Flask dev server has no request timeout, so long OCR uploads work there too — there is no reason to run Gunicorn in development.
 - Rebuild CSS only when adding new Tailwind classes or upgrading Basecoat (`output.css` is committed, so this is optional for running the app): `npm install && npm run build:css` (or `npm run watch:css`).
 - No automated test suite exists. Verify changes by driving the running app with the Playwright MCP browser tool — do not claim a UI change works without checking it in the browser.

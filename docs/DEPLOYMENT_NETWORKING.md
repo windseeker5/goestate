@@ -71,38 +71,96 @@ phone on cellular data, or https://check-host.net.
 
 As of 2026-08, `dresdell.com` has two providers with live records:
 
-- **Domain.com** (correct, matches the `.com` registry delegation) — has good
-  `A` records for `go`/`tv`/`crm`/`live`/`ai` → this machine's public IP.
+- **Domain.com** (correct, matches the `.com` registry delegation) — holds the
+  real `A` records → this machine's public IP. **Which hosts it actually
+  covers has to be checked, not assumed** — see below.
 - **Newfold/EIG** (`yourhostingaccount.com`, an old host, should have been
   decommissioned) — still live, with a **wildcard** record: any
   `*.dresdell.com` name not otherwise listed resolves to a dead parking IP,
   which serves a `403`.
 
-The bug: the Domain.com zone's own apex `NS` records incorrectly point at the
-EIG nameservers instead of Domain.com's. Resolvers that follow the in-zone NS
-(which outranks the parent referral) end up asking EIG, and hit the wildcard.
-This is **per-hostname, per-resolver, and re-rolls on every cache expiry** —
-so it looks like it "only affects one subdomain" when in fact all of them are
-equally exposed. Whichever name you happen to query least often is most
-likely to be the one currently showing broken, because its cache entry is the
-one most often expired and up for a bad re-roll.
+Run the diagnostic rather than reasoning about it from memory:
 
-**Fingerprints** (fast way to recognize this again):
+```bash
+python3 scripts/check-dns-delegation.py
+```
+
+It reads the parent delegation, both nameserver sets, and several public
+resolvers, and tells you which of the three failure modes below you have.
+(It speaks DNS over raw sockets — `dig` is not installed on this machine.)
+
+There are **three distinct failures**, and they need different fixes. Do not
+stop at the first one you recognize:
+
+1. **A host is simply missing from the good zone.** Confirmed on 2026-08-18:
+   `go`, `www` and `ai` had *no* `A` record at Domain.com, while `tv`, `crm`
+   and `live` had a correct one (`75.158.253.160`, ttl 900). A missing host
+   falls through to the EIG wildcard → 403, which makes an absent record look
+   like a routing or proxy problem. Fix: add the `A` record. **Do not add a
+   wildcard/catch-all to "solve" it** — an explicit record per host is
+   correct, and the only wildcard in play is the EIG one that causes the 403.
+2. **The apex `NS` RRset inside the zone points at the EIG nameservers**
+   instead of Domain.com's. Resolvers follow the in-zone NS (it outranks the
+   parent referral), ask EIG, and hit the wildcard. This is per-hostname,
+   per-resolver, and re-rolls on every cache expiry — so it looks like it
+   "only affects one subdomain" when all of them are equally exposed.
+3. **The delegated nameservers refuse the zone.** Observed 2026-08-18:
+   `ns1/ns2/ns3.domain.com` returned `REFUSED` on the large majority of
+   queries, with only a minority of anycast nodes serving the zone at all.
+   `REFUSED` from an authoritative server means "I don't host this zone."
+   This is why hosts with perfectly good records still SERVFAIL worldwide,
+   and it is purely provider-side.
+
+**Fingerprints** (fast way to recognize each again):
 - Public DNS resolves a `*.dresdell.com` name to `66.96.162.131` (EIG
-  wildcard) or `66.110.156.88` (a stale hardcoded EIG record) instead of this
-  machine's real IP.
+  wildcard), `66.110.156.88` (stale `tv`) or `66.96.149.22` (stale `www`)
+  instead of this machine's real IP → failure 1 or 2.
+- An authoritative `NXDOMAIN` for one host while sibling hosts answer
+  normally → failure 1, that host's record is missing.
 - `dresdell.com`'s apex `NS` answer mentions `yourhostingaccount.com` instead
-  of `domain.com`.
+  of `domain.com` → failure 2.
+- `REFUSED` from `ns*.domain.com`, or widespread `SERVFAIL` at public
+  resolvers for hosts you know have records → failure 3.
 - The failure seems to move between subdomains over time with no config
-  change on this machine.
+  change on this machine → failure 2 or 3.
+
+Because a single query proves nothing while failure 3 is active, check each
+host individually and retry until you catch an authoritative (`AA`) answer —
+that is exactly what `check-dns-delegation.py` does. A recursive resolver
+returning `NXDOMAIN` is also conclusive on its own: it got that from an
+authoritative source.
+
+**Not DNSSEC.** The `.com` parent publishes no `DS` records for this domain,
+and `CD=1` changes nothing — so widespread `SERVFAIL` here is never a
+validation failure. Re-confirm with the script rather than re-testing by hand.
 
 **Fix** (registrar control panels, not this repo):
-1. Domain.com → DNS/zone editor for `dresdell.com` → apex NS records → change
-   to `ns1.domain.com` / `ns2.domain.com` / `ns3.domain.com`.
-2. Newfold/EIG account → delete the `dresdell.com` zone entirely.
-3. Wait ~1 hour (old records carry a 3600s TTL) and re-verify.
+1. Domain.com → DNS/zone editor for `dresdell.com` → add the missing `A`
+   records (host `go`, value = this machine's public IP, TTL 900), and set the
+   apex NS records to `ns1.domain.com` / `ns2.domain.com` / `ns3.domain.com`.
+2. Newfold/EIG account → delete the `dresdell.com` zone entirely. Until this
+   is done, every subdomain stays exposed to the wildcard on cache re-roll.
+3. Raise the `REFUSED` unreliability with the same provider — Domain.com and
+   EIG are both Newfold, so it is one vendor and one ticket.
+4. Wait ~1 hour (old records carry a 3600s TTL) and re-verify with the script.
 
 **Why this was previously misdiagnosed** as a Gunicorn→`python app.py`
 regression, a `FLASK_RUN_HOST` bind issue, and a firewall issue: the switch to
 `python app.py` happened to coincide with a DNS cache re-roll, and the local
 chain returning `200` was never actually checked first.
+
+**And why it was misdiagnosed a fourth time, on 2026-08-18:** this document
+previously asserted that the Domain.com zone had good `A` records for
+`go`/`tv`/`crm`/`live`/`ai`. That was taken on faith and was wrong — `go` had
+no record at all. Treating the zone as uniformly correct hid a one-line fix
+behind a much scarier-looking delegation story. Verify per host; do not trust
+this file's record list, including the one above.
+
+Two traps specific to this machine, both of which have produced false
+"it works" / "it's broken" readings:
+
+- `/etc/hosts` pins `tv.dresdell.com` to a LAN address (`192.168.1.89`), so
+  local `tv` results say nothing about public DNS.
+- The router hairpins this machine's own public IP, so `curl` from here to
+  `75.158.253.160` returns 200 even when the outside world cannot reach it.
+  Verify from off-LAN, or with the DoH one-liner in the section above.
