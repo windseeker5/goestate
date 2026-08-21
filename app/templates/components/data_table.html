@@ -31,6 +31,15 @@
                                 at narrow widths. Use table_cell() for cells.
     class_     {string}         Additional classes for the table wrapper.
     extra_params {dict}         Query parameters preserved by sort links.
+    selectable {bool}           Default false. Adds a leading checkbox column
+                                (header "select all" + one per row, row.id as
+                                the value) for bulk actions. The checkboxes
+                                carry a `form` attribute so a bulk-action form
+                                can live elsewhere on the page without nesting
+                                <form> inside the table.
+    select_name {string}        Checkbox `name` attribute when selectable.
+    select_form {string}        `form` attribute value the checkboxes submit
+                                into when selectable.
 #}
 {% macro table_cell(label, primary=false, secondary=false, summary=false, summary_title=None, action=false, hide_label=false, numeric=false, class_="") %}
 <td
@@ -46,7 +55,7 @@
 </td>
 {% endmacro %}
 
-{% macro data_table(columns, rows, sort=None, order="asc", base_url="", caption=None, scrollable=true, responsive=false, class_="", extra_params={}) %}
+{% macro data_table(columns, rows, sort=None, order="asc", base_url="", caption=None, scrollable=true, responsive=false, class_="", extra_params={}, selectable=false, select_name="ids", select_form=None) %}
 {#
   Responsive tables use labeled records at narrow widths. Their wrapper stays
   unclipped so inline Basecoat action menus remain usable.
@@ -56,6 +65,11 @@
     {% if caption %}<caption>{{ caption }}</caption>{% endif %}
     <thead>
       <tr>
+        {% if selectable %}
+        <th class="w-8">
+          <input type="checkbox" data-select-all aria-label="Select all rows">
+        </th>
+        {% endif %}
         {% for col in columns %}
         {% set align = col.get("align", "start") %}
         <th class="{{ 'text-end' if align == 'end' else '' }} {{ col.get('class_', '') }}">
@@ -73,7 +87,7 @@
               {% endif %}
             </a>
           {% else %}
-            {{ col.label }}
+            {{ col.label | safe }}
           {% endif %}
         </th>
         {% endfor %}
@@ -82,11 +96,16 @@
     <tbody>
       {% for row in rows %}
       <tr>
+        {% if selectable %}
+        <td>
+          <input type="checkbox" name="{{ select_name }}" value="{{ row.id }}" {% if select_form %}form="{{ select_form }}"{% endif %} data-select-row aria-label="Select row">
+        </td>
+        {% endif %}
         {{ caller(row) }}
       </tr>
       {% else %}
       <tr>
-        <td colspan="{{ columns | length }}" class="text-center text-muted-foreground py-8">No results.</td>
+        <td colspan="{{ columns | length + (1 if selectable else 0) }}" class="text-center text-muted-foreground py-8">No results.</td>
       </tr>
       {% endfor %}
     </tbody>

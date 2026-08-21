@@ -6,7 +6,11 @@ from app.document_storage import attach_documents
 from app.photo_storage import PhotoValidationError, delete_photo, save_photo, send_photo
 
 PAGE_SIZE = 10
-STATUSES = ["Active", "Pending", "Sold", "Distributed"]
+STATUSES = ["Active", "Pending", "Sold", "Transferred"]
+
+
+def _users(db):
+    return db.execute("SELECT id, name, email FROM users ORDER BY name").fetchall()
 
 
 def _filter_sort(rows, q, sort, order):
@@ -22,6 +26,7 @@ def register(app):
     def list_assets():
         db = get_db()
         q = request.args.get("q", "")
+        sold_by = request.args.get("sold_by", "")
         sort = request.args.get("sort", "created_at")
         order = request.args.get("order", "desc")
         page = max(1, int(request.args.get("page", 1)))
@@ -29,6 +34,8 @@ def register(app):
         rows = db.execute(
             """
             SELECT a.*,
+                   u.name AS sold_by_name,
+                   u.email AS sold_by_email,
                    (
                        SELECT d.id
                        FROM documents d
@@ -39,8 +46,11 @@ def register(app):
                        LIMIT 1
                    ) AS document_id
             FROM assets a
+            LEFT JOIN users u ON u.id = a.sold_by
             """
         ).fetchall()
+        if sold_by:
+            rows = [r for r in rows if str(r["sold_by"]) == sold_by]
         rows = _filter_sort(rows, q, sort, order)
 
         total = len(rows)
@@ -52,6 +62,8 @@ def register(app):
             "blocks/assets_list.html",
             assets=rows,
             q=q,
+            sold_by=sold_by,
+            users=_users(db),
             sort=sort,
             order=order,
             page=page,
@@ -70,16 +82,18 @@ def register(app):
                 photo = request.files.get("photo")
                 if photo and photo.filename:
                     photo_path, photo_mime_type = save_photo(photo, "assets")
+                sold_by = request.form.get("sold_by") or None
                 cur = db.execute(
                     "INSERT INTO assets "
-                    "(name, category, estimated_value, sale_price, status, notes, photo_path, photo_mime_type) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    "(name, category, estimated_value, sale_price, status, sold_by, notes, photo_path, photo_mime_type) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         request.form.get("name", "").strip(),
                         request.form.get("category", "").strip(),
                         request.form.get("estimated_value") or 0,
                         request.form.get("sale_price") or None,
                         request.form.get("status", "Active"),
+                        sold_by,
                         request.form.get("notes", "").strip(),
                         photo_path,
                         photo_mime_type,
@@ -91,6 +105,7 @@ def register(app):
                     "blocks/assets_form.html",
                     item=None,
                     statuses=STATUSES,
+                    users=_users(db),
                     form_data=request.form,
                     error=str(exc),
                 ), 400
@@ -100,13 +115,17 @@ def register(app):
                 raise
             return redirect(url_for("detail_asset", item_id=cur.lastrowid))
         return render_template(
-            "blocks/assets_form.html", item=None, statuses=STATUSES, form_data=None
+            "blocks/assets_form.html", item=None, statuses=STATUSES, users=_users(get_db()), form_data=None
         )
 
     @app.route("/app/assets/<int:item_id>")
     def detail_asset(item_id):
         db = get_db()
-        item = db.execute("SELECT * FROM assets WHERE id = ?", (item_id,)).fetchone()
+        item = db.execute(
+            "SELECT a.*, u.name AS sold_by_name, u.email AS sold_by_email "
+            "FROM assets a LEFT JOIN users u ON u.id = a.sold_by WHERE a.id = ?",
+            (item_id,),
+        ).fetchone()
         if item is None:
             abort(404)
         documents = db.execute(
@@ -192,7 +211,7 @@ def register(app):
             abort(404)
         if request.method == "POST":
             db.execute(
-                "UPDATE assets SET name=?, category=?, estimated_value=?, sale_price=?, status=?, notes=?, "
+                "UPDATE assets SET name=?, category=?, estimated_value=?, sale_price=?, status=?, sold_by=?, notes=?, "
                 "updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=?",
                 (
                     request.form.get("name", "").strip(),
@@ -200,6 +219,7 @@ def register(app):
                     request.form.get("estimated_value") or 0,
                     request.form.get("sale_price") or None,
                     request.form.get("status", "Active"),
+                    request.form.get("sold_by") or None,
                     request.form.get("notes", "").strip(),
                     item_id,
                 ),
@@ -207,7 +227,7 @@ def register(app):
             db.commit()
             return redirect(url_for("detail_asset", item_id=item_id))
         return render_template(
-            "blocks/assets_form.html", item=item, statuses=STATUSES, form_data=None
+            "blocks/assets_form.html", item=item, statuses=STATUSES, users=_users(db), form_data=None
         )
 
     @app.route("/app/assets/<int:item_id>/delete", methods=["POST"])
@@ -221,3 +241,26 @@ def register(app):
         db.commit()
         delete_photo(item["photo_path"])
         return redirect(url_for("list_assets"))
+
+    @app.route("/app/assets/bulk-status", methods=["POST"])
+    @admin_required
+    def bulk_update_asset_status():
+        target_status = request.form.get("status", "")
+        if target_status not in STATUSES:
+            abort(400)
+        ids = [int(i) for i in request.form.getlist("asset_ids") if i.isdigit()]
+        if ids:
+            db = get_db()
+            # sold_by is intentionally left untouched here: the only bulk
+            # action exposed in the UI is Sold -> Transferred, where
+            # attribution should persist from the original sale. A future
+            # bulk transition INTO "Sold" would need the same becoming-sold
+            # logic as edit_asset().
+            placeholders = ",".join("?" * len(ids))
+            db.execute(
+                f"UPDATE assets SET status=?, updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') "
+                f"WHERE id IN ({placeholders})",
+                (target_status, *ids),
+            )
+            db.commit()
+        return redirect(request.referrer or url_for("list_assets"))

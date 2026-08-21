@@ -43,8 +43,12 @@
         <div>
           <dt class="text-xs text-muted-foreground uppercase tracking-wide">Status</dt>
           <dd class="mt-1">
-            <span class="badge" data-variant="{{ 'secondary' if item.status in ('Sold', 'Distributed') else 'outline' }}">{{ item.status }}</span>
+            <span class="badge" data-variant="{{ 'secondary' if item.status in ('Sold', 'Transferred') else 'outline' }}">{{ item.status }}</span>
           </dd>
+        </div>
+        <div>
+          <dt class="text-xs text-muted-foreground uppercase tracking-wide">Assigned to</dt>
+          <dd class="mt-1 font-medium">{{ item.sold_by_name or (item.sold_by_email.split("@")[0] if item.sold_by_email else "—") }}</dd>
         </div>
       </dl>
       {% if item.notes %}

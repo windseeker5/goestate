@@ -45,6 +45,12 @@
   ) | string if g.user and g.user.role == "admin" else None
 ) }}
 
+{% if amount_to_transfer and amount_to_transfer > 0 %}
+<p class="text-sm text-muted-foreground mb-4">
+  You have <span class="font-medium text-foreground">{{ amount_to_transfer|money }}</span> to transfer to the succession.
+</p>
+{% endif %}
+
 {#
   Six-column base grid so the five cards can split evenly two-across on phones
   (span 3) with Tasks taking the full width (span 6) on the last row. A flat

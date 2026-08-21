@@ -4,6 +4,7 @@
 {% from "components/data_table.html"    import data_table, table_cell %}
 {% from "components/pagination.html"    import pagination %}
 {% from "components/action_menu.html"   import action_menu %}
+{% from "components/asset_status_help.html" import asset_status_help %}
 
 {% block title %}Assets – Estate Copilot{% endblock %}
 {% block breadcrumb %}Assets{% endblock %}
@@ -18,8 +19,33 @@
 
 {{ search_filter(
   action=url_for("list_assets"),
-  q=q
+  q=q,
+  extra_params={"sold_by": sold_by, "sort": sort, "order": order}
 ) }}
+
+<nav aria-label="Filter by seller" class="mb-4">
+  <div class="flex items-center gap-2 overflow-x-auto pb-1">
+    <span class="shrink-0 text-sm font-medium text-muted-foreground">Assigned to</span>
+    <div class="flex min-w-max gap-1" role="group" aria-label="Filter by seller">
+      <a
+        href="{{ url_for('list_assets', q=q, sold_by='', sort=sort, order=order) }}"
+        class="btn"
+        data-size="xs"
+        data-variant="{{ 'primary' if not sold_by else 'outline' }}"
+        {% if not sold_by %}aria-current="true"{% endif %}
+      >All</a>
+      {% for u in users %}
+      <a
+        href="{{ url_for('list_assets', q=q, sold_by=u.id, sort=sort, order=order) }}"
+        class="btn"
+        data-size="xs"
+        data-variant="{{ 'primary' if sold_by == u.id|string else 'outline' }}"
+        {% if sold_by == u.id|string %}aria-current="true"{% endif %}
+      >{{ u.name or u.email }}</a>
+      {% endfor %}
+    </div>
+  </div>
+</nav>
 
 <p class="text-sm text-muted-foreground mb-3">{{ total }} record{{ "s" if total != 1 else "" }}</p>
 
@@ -29,11 +55,29 @@
   {"key": "category",        "label": "Category",   "sortable": true,  "class_": "w-28"},
   {"key": "estimated_value", "label": "Est. Value", "sortable": true,  "align": "end", "class_": "w-28"},
   {"key": "sale_price",      "label": "Sale Price", "sortable": true,  "align": "end", "class_": "w-28"},
-  {"key": "status",          "label": "Status",     "sortable": false, "class_": "w-28"},
+  {"key": "status",          "label": asset_status_help(id="asset-status-help-list", label="Status", trigger_class="inline-flex items-center gap-1 hover:text-foreground text-muted-foreground font-medium"), "sortable": false, "class_": "w-28"},
+  {"key": "sold_by_name",    "label": "Assigned to", "sortable": false, "class_": "w-28"},
   {"key": "_actions",        "label": "",           "sortable": false, "align": "end", "class_": "w-28"}
 ] %}
 
-{% call(row) data_table(columns=columns, rows=assets, sort=sort, order=order, base_url=url_for("list_assets"), responsive=true) %}
+{% if g.user.role == "admin" %}
+{#
+  Standalone, non-wrapping form: the per-row "Delete" action below already
+  renders its own <form> inside the table body, so wrapping the whole table
+  in a second <form> here would nest <form> inside <form>, which is invalid
+  HTML. Instead this form has no children — the row checkboxes (rendered by
+  data_table via select_form) and the bulk-bar button below associate with it
+  via the HTML `form="asset-bulk-form"` attribute instead of DOM nesting.
+#}
+<form id="asset-bulk-form" method="post" action="{{ url_for('bulk_update_asset_status') }}"></form>
+
+<div data-bulk-actions-bar hidden class="flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-2 mb-3">
+  <span class="text-sm text-muted-foreground"><span data-bulk-selected-count>0</span> selected</span>
+  <button type="submit" form="asset-bulk-form" name="status" value="Transferred" class="btn" data-variant="outline" data-size="sm">Mark as Transferred</button>
+</div>
+{% endif %}
+
+{% call(row) data_table(columns=columns, rows=assets, sort=sort, order=order, base_url=url_for("list_assets"), responsive=true, selectable=(g.user.role == "admin"), select_name="asset_ids", select_form="asset-bulk-form", extra_params={"q": q, "sold_by": sold_by}) %}
   {% call table_cell("Date", numeric=true, class_="text-muted-foreground") %}{{ row.created_at.split("T")[0] if row.created_at else "—" }}{% endcall %}
   {% call table_cell("Name", primary=true, summary=true, summary_title=row.name, class_="font-medium") %}
     <span class="inline-flex items-center gap-1.5">
@@ -54,9 +98,12 @@
   {% call table_cell("Estimated value", numeric=true, class_="text-end") %}{{ row.estimated_value|money(zero_blank=true) }}{% endcall %}
   {% call table_cell("Sale price", numeric=true, class_="text-end") %}{{ row.sale_price|money(zero_blank=true) }}{% endcall %}
   {% call table_cell("Status") %}
-    <span class="badge" data-variant="{{ 'secondary' if row.status in ('Sold', 'Distributed') else 'outline' }}">
+    <span class="badge" data-variant="{{ 'secondary' if row.status in ('Sold', 'Transferred') else 'outline' }}">
       {{ row.status }}
     </span>
+  {% endcall %}
+  {% call table_cell("Sold by", class_="text-muted-foreground") %}
+    {{ row.sold_by_name or (row.sold_by_email.split("@")[0] if row.sold_by_email else "—") }}
   {% endcall %}
   {% call table_cell("Actions", action=true, class_="text-end") %}
     {% set row_actions = [
@@ -79,7 +126,7 @@
   page=page,
   total_pages=total_pages,
   base_url=url_for("list_assets"),
-  extra_params={"q": q, "sort": sort, "order": order}
+  extra_params={"q": q, "sold_by": sold_by, "sort": sort, "order": order}
 ) }}
 
 {% endblock %}

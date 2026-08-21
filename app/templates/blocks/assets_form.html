@@ -3,6 +3,7 @@
 {% from "components/alert.html" import alert %}
 {% from "components/file_upload.html" import file_upload %}
 {% from "basecoat/select.html.jinja" import select %}
+{% from "components/asset_status_help.html" import asset_status_help %}
 
 {% set is_edit = item is not none %}
 {% set values = form_data if form_data else item %}
@@ -48,7 +49,10 @@
           </div>
         </div>
         <div class="grid gap-2">
-          <label class="label" for="status">Status</label>
+          <div class="flex items-center justify-between">
+            <label class="label" for="status">Status</label>
+            {{ asset_status_help(id="asset-status-help-form") }}
+          </div>
           {% set status_items = [] %}
           {% for s in statuses %}{% set _ = status_items.append({"value": s, "label": s}) %}{% endfor %}
           {{ select(
@@ -56,6 +60,18 @@
             name="status",
             selected=(values.status if values and values.status else statuses[0]),
             items=status_items
+          ) }}
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="sold_by">Assigned to</label>
+          {% set sold_by_items = [{"value": "", "label": "— Unassigned —"}] %}
+          {% for u in users %}{% set _ = sold_by_items.append({"value": u.id|string, "label": u.name or u.email}) %}{% endfor %}
+          {% set default_sold_by = (values.sold_by|string) if (values and values.sold_by) else (g.user.id|string if not is_edit else "") %}
+          {{ select(
+            id="sold_by",
+            name="sold_by",
+            selected=default_sold_by,
+            items=sold_by_items
           ) }}
         </div>
         <div class="grid gap-2">

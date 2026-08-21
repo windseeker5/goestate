@@ -101,3 +101,30 @@ document.addEventListener("change", (event) => {
   row.classList.add("is-completing");
   window.setTimeout(() => checkbox.form.requestSubmit(), 240);
 });
+
+// Bulk-select tables (see components/data_table.html `selectable`): a header
+// "select all" checkbox drives every row checkbox, and the bulk-action bar
+// shows/hides based on how many rows are checked. The actual mutation is a
+// real form submit (data_table wires each checkbox to the bulk form via the
+// `form` attribute) — this is purely show/hide + count, genuinely
+// browser-only state that Jinja can't render server-side.
+document.addEventListener("change", (event) => {
+  const target = event.target;
+  if (!target.matches("[data-select-all], [data-select-row]")) return;
+
+  const table = target.closest("table");
+  if (!table) return;
+
+  if (target.matches("[data-select-all]")) {
+    table.querySelectorAll("[data-select-row]").forEach((cb) => {
+      cb.checked = target.checked;
+    });
+  }
+
+  const bar = document.querySelector("[data-bulk-actions-bar]");
+  if (!bar) return;
+  const checked = table.querySelectorAll("[data-select-row]:checked").length;
+  bar.hidden = checked === 0;
+  const countEl = bar.querySelector("[data-bulk-selected-count]");
+  if (countEl) countEl.textContent = String(checked);
+});

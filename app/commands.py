@@ -47,7 +47,8 @@ CREATE TABLE IF NOT EXISTS assets (
     estimated_value REAL    DEFAULT 0,
     sale_price      REAL,               -- NULL until sold
     status          TEXT    DEFAULT 'Active',
-                                        -- Active | Sold | Distributed | Pending
+                                        -- Active | Sold | Transferred | Pending
+    sold_by         INTEGER REFERENCES users(id),  -- set automatically when status -> 'Sold'
     notes           TEXT,
     photo_path      TEXT,               -- relative to instance/uploads/ledger-photos/
     photo_mime_type TEXT,
@@ -246,6 +247,7 @@ def init_db_command():
             ("users", "name", "TEXT"),
             ("assets", "photo_path", "TEXT"),
             ("assets", "photo_mime_type", "TEXT"),
+            ("assets", "sold_by", "INTEGER REFERENCES users(id)"),
             ("liabilities", "photo_path", "TEXT"),
             ("liabilities", "photo_mime_type", "TEXT"),
             ("events", "email_direction", "TEXT"),

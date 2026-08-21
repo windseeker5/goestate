@@ -1,0 +1,52 @@
+{#
+  Help trigger + dialog explaining what each asset status means and when to
+  use it. Shared by the asset form (next to the Status field) and the assets
+  list (next to the page header) so there is one place to update the wording.
+
+  Usage:
+    from "components/asset_status_help.html" import asset_status_help
+    asset_status_help()                          - icon-only, compact
+    asset_status_help(id="...", label="What do the statuses mean?")
+
+  Params:
+    id            {string}  Unique dialog id. Give each call site its own id
+                             if more than one instance renders on the same page.
+    label         {string}  Optional visible text next to the icon. Omit for
+                             a compact icon-only trigger (used inline next to
+                             a form label).
+    trigger_class {string}  Optional full override for the trigger button's
+                             class (and drops the default btn variant/size
+                             attrs) — for embedding the trigger somewhere with
+                             its own styling, e.g. a table column header.
+#}
+{% from "basecoat/dialog.html.jinja" import dialog %}
+
+{% macro asset_status_help(id="asset-status-help", label=None, trigger_class=None) %}
+{% set icon = '<svg class="lucide lucide-circle-help size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>' %}
+{% call dialog(
+  id=id,
+  trigger=(icon ~ ' ' ~ label) if label else icon,
+  trigger_attrs=({"class": trigger_class} if trigger_class else ({"class": "btn inline-flex items-center gap-1.5", "data-variant": "link", "data-size": "sm"} if label else {"class": "btn", "data-variant": "ghost", "data-size": "icon-sm", "aria-label": "What do these statuses mean?"})),
+  title="Asset statuses",
+  description="What each status means and when to use it."
+) %}
+<dl class="grid gap-4">
+  <div>
+    <dt><span class="badge" data-variant="outline">Active</span></dt>
+    <dd class="mt-1.5 text-sm text-muted-foreground">Pas encore vendu — le bien appartient toujours à la succession.</dd>
+  </div>
+  <div>
+    <dt><span class="badge" data-variant="outline">Pending</span></dt>
+    <dd class="mt-1.5 text-sm text-muted-foreground">Offre reçue ou acceptée, mais l'argent n'est pas encore reçu.</dd>
+  </div>
+  <div>
+    <dt><span class="badge" data-variant="outline">Sold</span></dt>
+    <dd class="mt-1.5 text-sm text-muted-foreground">L'argent est reçu par le liquidateur, mais pas encore transféré au compte de la succession.</dd>
+  </div>
+  <div>
+    <dt><span class="badge" data-variant="secondary">Transferred</span></dt>
+    <dd class="mt-1.5 text-sm text-muted-foreground">L'argent a été transféré au compte réel de la succession.</dd>
+  </div>
+</dl>
+{% endcall %}
+{% endmacro %}

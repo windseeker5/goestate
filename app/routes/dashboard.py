@@ -23,6 +23,13 @@ def register(app):
         event_count = db.execute("SELECT COUNT(*) FROM events").fetchone()[0]
         document_count = db.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
 
+        # Money the current user personally holds from sales they haven't
+        # yet wired to the succession's real bank account.
+        amount_to_transfer = db.execute(
+            "SELECT COALESCE(SUM(sale_price), 0) FROM assets WHERE sold_by = ? AND status = 'Sold'",
+            (g.user["id"],),
+        ).fetchone()[0]
+
         open_task_count = db.execute(
             "SELECT COUNT(*) FROM tasks WHERE user_id = ? AND status NOT IN ('Done', 'Cancelled')",
             (g.user["id"],),
@@ -57,6 +64,7 @@ def register(app):
             liability_total=liability_total,
             event_count=event_count,
             document_count=document_count,
+            amount_to_transfer=amount_to_transfer,
             recent_events=recent_events,
             display_name=display_name,
             open_task_count=open_task_count,
