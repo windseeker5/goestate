@@ -14,7 +14,7 @@
 
 {{ page_header(
   title=item.title,
-  action=('<a href="' ~ url_for("edit_task", item_id=item.id) ~ '" class="btn" data-variant="outline">Edit</a>')
+  action=('<a href="' ~ url_for("edit_task", item_id=item.id) ~ '" class="btn" data-variant="outline">Edit</a>') if g.user.role == "admin" else None
 ) }}
 
 <div class="grid gap-4 md:grid-cols-3">
@@ -34,6 +34,14 @@
           <dt class="text-xs text-muted-foreground uppercase tracking-wide">Status</dt>
           <dd class="mt-1"><span class="badge" data-variant="{{ 'secondary' if item.status in ('Done', 'Cancelled') else 'outline' }}">{{ item.status }}</span></dd>
         </div>
+        <div>
+          <dt class="text-xs text-muted-foreground uppercase tracking-wide">Assigned to</dt>
+          <dd class="mt-1 font-medium">{{ item.assigned_to_name or (item.assigned_to_email.split("@")[0] if item.assigned_to_email else "—") }}</dd>
+        </div>
+        <div>
+          <dt class="text-xs text-muted-foreground uppercase tracking-wide">Created by</dt>
+          <dd class="mt-1 font-medium">{{ item.created_by_name or (item.created_by_email.split("@")[0] if item.created_by_email else "—") }}</dd>
+        </div>
       </dl>
       {% if item.notes %}
       <div class="mt-4">
@@ -43,6 +51,7 @@
       {% endif %}
     </section>
   </div>
+  {% if g.user.role == "admin" %}
   <div class="card">
     <header><h2>Actions</h2></header>
     <section class="flex flex-col gap-2">
@@ -52,6 +61,7 @@
       </form>
     </section>
   </div>
+  {% endif %}
 </div>
 
 {% endblock %}

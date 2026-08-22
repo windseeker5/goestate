@@ -61,6 +61,18 @@
           ) }}
         </div>
         <div class="grid gap-2">
+          <label class="label" for="assigned_to">Assigned to</label>
+          {% set assigned_to_items = [{"value": "", "label": "— Unassigned —"}] %}
+          {% for u in users %}{% set _ = assigned_to_items.append({"value": u.id|string, "label": u.name or u.email}) %}{% endfor %}
+          {% set default_assigned_to = (values.assigned_to|string) if (values and values.assigned_to) else (g.user.id|string if not is_edit else "") %}
+          {{ select(
+            id="assigned_to",
+            name="assigned_to",
+            selected=default_assigned_to,
+            items=assigned_to_items
+          ) }}
+        </div>
+        <div class="grid gap-2">
           <label class="label" for="notes">Notes</label>
           <textarea class="input min-h-24" id="notes" name="notes">{{ values.notes if values else '' }}</textarea>
         </div>

@@ -85,14 +85,17 @@ CREATE TABLE IF NOT EXISTS events (
 );
 
 -- ──────────────────────────────────────────────────────────
--- Tasks (personal to-do list, scoped to the owning user)
+-- Tasks (shared to-do list for the estate)
 -- ──────────────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS tasks (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id         INTEGER NOT NULL REFERENCES users(id),
-                                        -- owner; a task is only ever visible
-                                        -- to this user, regardless of role
+                                        -- creator, for attribution only —
+                                        -- every task is visible to all users
+    assigned_to     INTEGER REFERENCES users(id),
+                                        -- who's responsible for doing it;
+                                        -- independent of the creator above
     title           TEXT    NOT NULL,
     due_date        TEXT,               -- ISO date string YYYY-MM-DD
     priority        TEXT    DEFAULT 'Medium',
@@ -251,6 +254,7 @@ def init_db_command():
             ("liabilities", "photo_path", "TEXT"),
             ("liabilities", "photo_mime_type", "TEXT"),
             ("events", "email_direction", "TEXT"),
+            ("tasks", "assigned_to", "INTEGER REFERENCES users(id)"),
         )
         for table, column, column_type in migrations:
             existing_columns = {
@@ -260,6 +264,16 @@ def init_db_command():
                 db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}")
                 db.commit()
                 click.echo(click.style(f"  [OK] Migrated: added {table}.{column} column.", fg="green"))
+
+                if table == "tasks" and column == "assigned_to":
+                    # Existing tasks had no assignee concept — keep them
+                    # assigned to their creator rather than leaving every
+                    # pre-existing task unassigned after this migration.
+                    db.execute("UPDATE tasks SET assigned_to = user_id WHERE assigned_to IS NULL")
+                    db.commit()
+                    click.echo(click.style(
+                        "  [OK] Backfilled tasks.assigned_to from tasks.user_id.", fg="green"
+                    ))
 
         # Backfill the FTS indexes. The sync triggers only fire on rows written
         # after the triggers exist, so an existing database would otherwise have

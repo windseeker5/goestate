@@ -63,7 +63,6 @@ def register(app):
             assets=rows,
             q=q,
             sold_by=sold_by,
-            users=_users(db),
             sort=sort,
             order=order,
             page=page,

@@ -130,10 +130,41 @@
 
   {% if upcoming_tasks %}
   <div class="card">
-    <header><h2>My Tasks</h2><p>Open items you still need to handle.</p></header>
+    <header class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h2>Upcoming Tasks</h2>
+        <p>Open items across the estate.</p>
+      </div>
+      <div class="flex min-w-max gap-1" role="group" aria-label="Filter by assignee">
+        <a
+          href="{{ url_for('dashboard') }}"
+          class="btn"
+          data-size="xs"
+          data-variant="{{ 'primary' if not my_tasks else 'outline' }}"
+          {% if not my_tasks %}aria-current="true"{% endif %}
+        >All</a>
+        <a
+          href="{{ url_for('dashboard', my_tasks=1) }}"
+          class="btn"
+          data-size="xs"
+          data-variant="{{ 'primary' if my_tasks else 'outline' }}"
+          {% if my_tasks %}aria-current="true"{% endif %}
+        >Mine</a>
+      </div>
+    </header>
     <section>
       {% for row in upcoming_tasks %}
         {% set overdue = row.due_date and row.due_date < today %}
+        {% set task_body %}
+          <span class="block break-words text-sm font-medium">{{ row.title }}</span>
+          <span class="mt-0.5 block text-xs {{ 'text-destructive' if overdue else 'text-muted-foreground' }}">
+            {{ ("Overdue · " ~ row.due_date) if overdue else (row.due_date or "No due date") }}
+          </span>
+          <span class="mt-1 block text-sm text-muted-foreground">
+            {{ row.priority }} priority · Assigned to {{ row.assigned_to_name or (row.assigned_to_email.split("@")[0] if row.assigned_to_email else "no one") }}
+          </span>
+        {% endset %}
+      {% if g.user.role == "admin" %}
       <form method="post" action="{{ url_for('toggle_task', item_id=row.id) }}" class="dashboard-task-row flex items-start gap-3 py-3 first:pt-0 last:pb-0" data-dashboard-task>
         <input
           id="dashboard-task-{{ row.id }}"
@@ -141,18 +172,19 @@
           class="input dashboard-task-checkbox mt-0.5 shrink-0"
           data-task-complete
         />
-        <label for="dashboard-task-{{ row.id }}" class="min-w-0 flex-1 cursor-pointer">
-          <span class="block break-words text-sm font-medium">{{ row.title }}</span>
-          <span class="mt-0.5 block text-xs {{ 'text-destructive' if overdue else 'text-muted-foreground' }}">
-            {{ ("Overdue · " ~ row.due_date) if overdue else (row.due_date or "No due date") }}
-          </span>
-          <span class="mt-1 block text-sm text-muted-foreground">{{ row.priority }} priority</span>
-        </label>
+        <label for="dashboard-task-{{ row.id }}" class="min-w-0 flex-1 cursor-pointer">{{ task_body }}</label>
       </form>
+      {% else %}
+      <div class="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+        <div class="min-w-0 flex-1">{{ task_body }}</div>
+      </div>
+      {% endif %}
       {% endfor %}
     </section>
     <footer class="justify-end gap-2">
+      {% if g.user.role == "admin" %}
       <a href="{{ url_for('new_task') }}" class="btn" data-variant="outline" data-size="sm">+ Add task</a>
+      {% endif %}
       <a href="{{ url_for('list_tasks') }}" class="btn" data-variant="ghost" data-size="sm">View all tasks</a>
     </footer>
   </div>

@@ -295,6 +295,14 @@
       text-align: center;
     }
 
+    /* Bulk-select checkboxes don't work well once rows become stacked
+       cards: there's no way to review a selection across a paginated,
+       scrolling list. Hide the whole column at this breakpoint instead
+       of rendering a floating, unlabeled checkbox per card. */
+    .responsive-table .table [data-select-col] {
+      display: none;
+    }
+
     .responsive-table .table td[colspan]::before {
       content: none;
     }

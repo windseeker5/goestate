@@ -35,7 +35,7 @@
 {% call(row) data_table(columns=columns, rows=liabilities, sort=sort, order=order, base_url=url_for("list_liabilities"), responsive=true) %}
   {% call table_cell("Due date", numeric=true, class_="text-muted-foreground") %}{{ row.due_date or "—" }}{% endcall %}
   {% call table_cell("Description") %}{{ row.description or "—" }}{% endcall %}
-  {% call table_cell("Creditor", primary=true, summary=true, summary_title=row.creditor, class_="font-medium") %}
+  {% call table_cell("Creditor", primary=true, summary=true, summary_title=row.creditor, hide_label=true, class_="font-medium") %}
     <span class="inline-flex items-center gap-1.5">
       {{ row.creditor }}
       {% if row.photo_path %}
@@ -56,7 +56,7 @@
       {{ row.status }}
     </span>
   {% endcall %}
-  {% call table_cell("Actions", action=true, class_="text-end") %}
+  {% call table_cell("Actions", action=true, hide_label=true, class_="text-end") %}
     {% set row_actions = [
       {"label": "View", "url": url_for('detail_liability', item_id=row.id)}
     ] %}

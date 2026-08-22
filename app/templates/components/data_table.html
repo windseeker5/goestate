@@ -66,7 +66,7 @@
     <thead>
       <tr>
         {% if selectable %}
-        <th class="w-8">
+        <th class="w-8" data-select-col>
           <input type="checkbox" data-select-all aria-label="Select all rows">
         </th>
         {% endif %}
@@ -97,7 +97,7 @@
       {% for row in rows %}
       <tr>
         {% if selectable %}
-        <td>
+        <td data-select-col>
           <input type="checkbox" name="{{ select_name }}" value="{{ row.id }}" {% if select_form %}form="{{ select_form }}"{% endif %} data-select-row aria-label="Select row">
         </td>
         {% endif %}

@@ -14,14 +14,14 @@
 
 {{ page_header(
   title="Tasks",
-  description="Your personal to-do list for this estate — only visible to you.",
-  action=('<a href="' ~ url_for("new_task") ~ '" class="btn"><svg data-icon="inline-start" class="lucide lucide-plus" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add task</a>')
+  description="The shared task list for this estate.",
+  action=('<a href="' ~ url_for("new_task") ~ '" class="btn"><svg data-icon="inline-start" class="lucide lucide-plus" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add task</a>') if g.user.role == "admin" else None
 ) }}
 
 {{ search_filter(
   action=url_for("list_tasks"),
   q=q,
-  extra_params={"status": status, "priority": priority, "sort": sort, "order": order}
+  extra_params={"status": status, "priority": priority, "assigned_to": assigned_to, "sort": sort, "order": order}
 ) }}
 
 <nav aria-label="Filter tasks" class="mb-4 flex flex-col gap-2 xl:flex-row xl:items-center xl:gap-4">
@@ -29,7 +29,7 @@
     <span class="shrink-0 text-sm font-medium text-muted-foreground">Status</span>
     <div class="flex min-w-max gap-1" role="group" aria-label="Filter by status">
       <a
-        href="{{ url_for('list_tasks', q=q, status='', priority=priority, sort=sort, order=order) }}"
+        href="{{ url_for('list_tasks', q=q, status='', priority=priority, assigned_to=assigned_to, sort=sort, order=order) }}"
         class="btn"
         data-size="xs"
         data-variant="{{ 'primary' if not status else 'outline' }}"
@@ -37,7 +37,7 @@
       >All</a>
       {% for value in statuses %}
       <a
-        href="{{ url_for('list_tasks', q=q, status=value, priority=priority, sort=sort, order=order) }}"
+        href="{{ url_for('list_tasks', q=q, status=value, priority=priority, assigned_to=assigned_to, sort=sort, order=order) }}"
         class="btn"
         data-size="xs"
         data-variant="{{ 'primary' if status == value else 'outline' }}"
@@ -50,7 +50,7 @@
     <span class="shrink-0 text-sm font-medium text-muted-foreground">Priority</span>
     <div class="flex min-w-max gap-1" role="group" aria-label="Filter by priority">
       <a
-        href="{{ url_for('list_tasks', q=q, status=status, priority='', sort=sort, order=order) }}"
+        href="{{ url_for('list_tasks', q=q, status=status, priority='', assigned_to=assigned_to, sort=sort, order=order) }}"
         class="btn"
         data-size="xs"
         data-variant="{{ 'primary' if not priority else 'outline' }}"
@@ -58,13 +58,32 @@
       >Any</a>
       {% for value in priorities %}
       <a
-        href="{{ url_for('list_tasks', q=q, status=status, priority=value, sort=sort, order=order) }}"
+        href="{{ url_for('list_tasks', q=q, status=status, priority=value, assigned_to=assigned_to, sort=sort, order=order) }}"
         class="btn"
         data-size="xs"
         data-variant="{{ 'primary' if priority == value else 'outline' }}"
         {% if priority == value %}aria-current="true"{% endif %}
       >{{ value }}</a>
       {% endfor %}
+    </div>
+  </div>
+  <div class="flex items-center gap-2 overflow-x-auto pb-1 xl:pb-0">
+    <span class="shrink-0 text-sm font-medium text-muted-foreground">Assigned to</span>
+    <div class="flex min-w-max gap-1" role="group" aria-label="Filter by assignee">
+      <a
+        href="{{ url_for('list_tasks', q=q, status=status, priority=priority, assigned_to='', sort=sort, order=order) }}"
+        class="btn"
+        data-size="xs"
+        data-variant="{{ 'primary' if not assigned_to else 'outline' }}"
+        {% if not assigned_to %}aria-current="true"{% endif %}
+      >All</a>
+      <a
+        href="{{ url_for('list_tasks', q=q, status=status, priority=priority, assigned_to=g.user.id, sort=sort, order=order) }}"
+        class="btn"
+        data-size="xs"
+        data-variant="{{ 'primary' if assigned_to == g.user.id|string else 'outline' }}"
+        {% if assigned_to == g.user.id|string %}aria-current="true"{% endif %}
+      >Me</a>
     </div>
   </div>
 </nav>
@@ -77,16 +96,18 @@
 </p>
 
 {% set columns = [
-  {"key": "due_date", "label": "Due Date", "sortable": true, "class_": "w-28"},
-  {"key": "title",    "label": "Title",    "sortable": true},
-  {"key": "priority", "label": "Priority", "sortable": true, "class_": "w-28"},
-  {"key": "status",   "label": "Status",   "sortable": false, "class_": "w-28"},
-  {"key": "_actions", "label": "",         "sortable": false, "align": "end", "class_": "w-28"}
+  {"key": "due_date",          "label": "Due Date",    "sortable": true, "class_": "w-28"},
+  {"key": "title",             "label": "Title",       "sortable": true},
+  {"key": "priority",          "label": "Priority",    "sortable": true, "class_": "w-28"},
+  {"key": "status",            "label": "Status",      "sortable": false, "class_": "w-28"},
+  {"key": "assigned_to_name",  "label": "Assigned to", "sortable": false, "class_": "w-28"},
+  {"key": "created_by_name",   "label": "Created by",  "sortable": false, "class_": "w-28"},
+  {"key": "_actions",          "label": "",            "sortable": false, "align": "end", "class_": "w-28"}
 ] %}
 
-{% call(row) data_table(columns=columns, rows=tasks, sort=sort, order=order, base_url=url_for("list_tasks"), responsive=true, extra_params={"q": q, "status": status, "priority": priority}) %}
+{% call(row) data_table(columns=columns, rows=tasks, sort=sort, order=order, base_url=url_for("list_tasks"), responsive=true, extra_params={"q": q, "status": status, "priority": priority, "assigned_to": assigned_to}) %}
   {% call table_cell("Due date", numeric=true, class_="text-muted-foreground") %}{{ row.due_date or "—" }}{% endcall %}
-  {% call table_cell("Title", primary=true, summary=true, summary_title=row.title, class_="font-medium") %}{{ row.title }}{% endcall %}
+  {% call table_cell("Title", primary=true, summary=true, summary_title=row.title, hide_label=true, class_="font-medium") %}{{ row.title }}{% endcall %}
   {% call table_cell("Priority") %}
     <span class="badge" data-variant="{{ priority_badge_variant.get(row.priority, 'outline') }}">
       {{ row.priority }}
@@ -97,13 +118,24 @@
       {{ row.status }}
     </span>
   {% endcall %}
-  {% call table_cell("Actions", action=true, class_="text-end") %}
+  {% call table_cell("Assigned to", class_="text-muted-foreground") %}
+    {{ row.assigned_to_name or (row.assigned_to_email.split("@")[0] if row.assigned_to_email else "—") }}
+  {% endcall %}
+  {% call table_cell("Created by", class_="text-muted-foreground") %}
+    {{ row.created_by_name or (row.created_by_email.split("@")[0] if row.created_by_email else "—") }}
+  {% endcall %}
+  {% call table_cell("Actions", action=true, hide_label=true, class_="text-end") %}
     {% set row_actions = [
-      {"label": "View", "url": url_for('detail_task', item_id=row.id)},
-      {"label": "Edit", "url": url_for('edit_task', item_id=row.id)},
-      {"type": "separator"},
-      {"label": "Delete", "attrs": {"class": "text-destructive", "onclick": "if(confirm('Delete this task?')) document.getElementById('delete-form-" ~ row.id ~ "').submit()"}}
+      {"label": "View", "url": url_for('detail_task', item_id=row.id)}
     ] %}
+    {% if g.user.role == "admin" %}
+      {% set _ = row_actions.append({"label": "Edit", "url": url_for('edit_task', item_id=row.id)}) %}
+      {% set _ = row_actions.append({"type": "separator"}) %}
+      {% set _ = row_actions.append({
+        "label": "Delete",
+        "attrs": {"class": "text-destructive", "onclick": "if(confirm('Delete this task?')) document.getElementById('delete-form-" ~ row.id ~ "').submit()"}
+      }) %}
+    {% endif %}
     <form id="delete-form-{{ row.id }}" method="post" action="{{ url_for('delete_task', item_id=row.id) }}" class="hidden"></form>
     {{ action_menu(id="task-actions-" ~ row.id, items=row_actions) }}
   {% endcall %}
@@ -113,7 +145,7 @@
   page=page,
   total_pages=total_pages,
   base_url=url_for("list_tasks"),
-  extra_params={"q": q, "status": status, "priority": priority, "sort": sort, "order": order}
+  extra_params={"q": q, "status": status, "priority": priority, "assigned_to": assigned_to, "sort": sort, "order": order}
 ) }}
 
 {% endblock %}

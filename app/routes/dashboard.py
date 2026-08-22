@@ -31,13 +31,19 @@ def register(app):
         ).fetchone()[0]
 
         open_task_count = db.execute(
-            "SELECT COUNT(*) FROM tasks WHERE user_id = ? AND status NOT IN ('Done', 'Cancelled')",
-            (g.user["id"],),
+            "SELECT COUNT(*) FROM tasks WHERE status NOT IN ('Done', 'Cancelled')"
         ).fetchone()[0]
+
+        # "Mine" is a display-only toggle on the Upcoming Tasks widget, not a
+        # visibility boundary — the dashboard stays estate-wide by default.
+        my_tasks = request.args.get("my_tasks") == "1"
         upcoming_tasks = db.execute(
-            "SELECT * FROM tasks WHERE user_id = ? AND status NOT IN ('Done', 'Cancelled') "
-            "ORDER BY (due_date IS NULL), due_date ASC LIMIT 5",
-            (g.user["id"],),
+            "SELECT t.*, u.name AS assigned_to_name, u.email AS assigned_to_email "
+            "FROM tasks t LEFT JOIN users u ON u.id = t.assigned_to "
+            "WHERE t.status NOT IN ('Done', 'Cancelled') "
+            + ("AND t.assigned_to = ? " if my_tasks else "")
+            + "ORDER BY (t.due_date IS NULL), t.due_date ASC LIMIT 5",
+            (g.user["id"],) if my_tasks else (),
         ).fetchall()
 
         # Sort by event_date DESC so the most recently *dated* entry is
@@ -69,6 +75,7 @@ def register(app):
             display_name=display_name,
             open_task_count=open_task_count,
             upcoming_tasks=upcoming_tasks,
+            my_tasks=my_tasks,
             today=date.today().isoformat(),
         )
 

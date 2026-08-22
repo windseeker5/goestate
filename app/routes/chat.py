@@ -164,21 +164,19 @@ def search_events(db, question, limit=5):
     return results
 
 
-def search_tasks(db, question, user_id, limit=5):
-    """Full-text search the signed-in user's task titles and notes."""
+def search_tasks(db, question, limit=5):
+    """Full-text search the estate's task titles and notes."""
     keywords = _extract_keywords(question)
     if not keywords:
         return []
 
     try:
         rows = db.execute(
-            # The user_id filter is a privacy boundary, not a convenience —
-            # tasks are private to their owner regardless of role.
             "SELECT t.id, t.title, t.due_date, t.priority, t.status, t.notes "
             "FROM tasks_fts f JOIN tasks t ON t.id = f.rowid "
-            "WHERE tasks_fts MATCH ? AND t.user_id = ? "
+            "WHERE tasks_fts MATCH ? "
             "ORDER BY bm25(tasks_fts) LIMIT ?",
-            (_fts_match_expression(keywords), user_id, limit),
+            (_fts_match_expression(keywords), limit),
         ).fetchall()
     except sqlite3.OperationalError:
         return []
@@ -366,7 +364,7 @@ def register(app):
             if question:
                 doc_count = db.execute("SELECT COUNT(*) FROM documents WHERE ingestion_status = 'embedded'").fetchone()[0]
                 event_matches = search_events(db, question, limit=5)
-                task_matches = search_tasks(db, question, g.user["id"], limit=5)
+                task_matches = search_tasks(db, question, limit=5)
                 ledger_matches = ledger_sources(db)
 
                 if doc_count == 0 and not event_matches and not task_matches and not ledger_matches:

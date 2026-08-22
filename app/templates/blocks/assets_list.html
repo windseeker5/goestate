@@ -45,15 +45,13 @@
         data-variant="{{ 'primary' if not sold_by else 'outline' }}"
         {% if not sold_by %}aria-current="true"{% endif %}
       >All</a>
-      {% for u in users %}
       <a
-        href="{{ url_for('list_assets', q=q, sold_by=u.id, sort=sort, order=order) }}"
+        href="{{ url_for('list_assets', q=q, sold_by=g.user.id, sort=sort, order=order) }}"
         class="btn"
         data-size="xs"
-        data-variant="{{ 'primary' if sold_by == u.id|string else 'outline' }}"
-        {% if sold_by == u.id|string %}aria-current="true"{% endif %}
-      >{{ u.name or u.email }}</a>
-      {% endfor %}
+        data-variant="{{ 'primary' if sold_by == g.user.id|string else 'outline' }}"
+        {% if sold_by == g.user.id|string %}aria-current="true"{% endif %}
+      >Me</a>
     </div>
   </div>
 </nav>
@@ -90,7 +88,7 @@
 
 {% call(row) data_table(columns=columns, rows=assets, sort=sort, order=order, base_url=url_for("list_assets"), responsive=true, selectable=(g.user.role == "admin"), select_name="asset_ids", select_form="asset-bulk-form", extra_params={"q": q, "sold_by": sold_by}) %}
   {% call table_cell("Date", numeric=true, class_="text-muted-foreground") %}{{ row.created_at.split("T")[0] if row.created_at else "—" }}{% endcall %}
-  {% call table_cell("Name", primary=true, summary=true, summary_title=row.name, class_="font-medium") %}
+  {% call table_cell("Name", primary=true, summary=true, summary_title=row.name, hide_label=true, class_="font-medium") %}
     <span class="inline-flex items-center gap-1.5">
       {{ row.name }}
       {% if row.photo_path %}
@@ -116,7 +114,7 @@
   {% call table_cell("Assigned to", class_="text-muted-foreground") %}
     {{ row.sold_by_name or (row.sold_by_email.split("@")[0] if row.sold_by_email else "—") }}
   {% endcall %}
-  {% call table_cell("Actions", action=true, class_="text-end") %}
+  {% call table_cell("Actions", action=true, hide_label=true, class_="text-end") %}
     {% set row_actions = [
       {"label": "View", "url": url_for('detail_asset', item_id=row.id)}
     ] %}

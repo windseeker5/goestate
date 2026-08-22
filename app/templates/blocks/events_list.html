@@ -43,7 +43,7 @@
   {% call table_cell("Type") %}<span class="badge" data-variant="outline">{{ row.type }}{% if row.type == "Email" and row.email_direction %} · {{ row.email_direction | title }}{% endif %}</span>{% endcall %}
   {% call table_cell("Contact", secondary=true) %}{{ row.contact or "—" }}{% endcall %}
   {% call table_cell("Topic", primary=true, summary=true, summary_title=row.title, hide_label=true) %}{{ row.title }}{% endcall %}
-  {% call table_cell("Actions", action=true, class_="text-end") %}
+  {% call table_cell("Actions", action=true, hide_label=true, class_="text-end") %}
     {% set row_actions = [
       {"label": "View", "url": url_for('detail_event', item_id=row.id)}
     ] %}
