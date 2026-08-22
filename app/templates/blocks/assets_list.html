@@ -17,6 +17,17 @@
   action=('<a href="' ~ url_for("new_asset") ~ '" class="btn"><svg data-icon="inline-start" class="lucide lucide-plus" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add asset</a>') if g.user.role == "admin" else None
 ) }}
 
+{#
+  Below the xl breakpoint (1280px), the responsive table hides its <thead>
+  entirely (see .responsive-table CSS) and stacks rows as labeled cards
+  instead — so the status-help trigger embedded in the "Status" column
+  header (below) is invisible there. This is a second, mobile-only trigger
+  for the same dialog, hidden once the table-header version takes over.
+#}
+<div class="xl:hidden mb-4">
+  {{ asset_status_help(id="asset-status-help-mobile", label="What do the statuses mean?") }}
+</div>
+
 {{ search_filter(
   action=url_for("list_assets"),
   q=q,
@@ -102,7 +113,7 @@
       {{ row.status }}
     </span>
   {% endcall %}
-  {% call table_cell("Sold by", class_="text-muted-foreground") %}
+  {% call table_cell("Assigned to", class_="text-muted-foreground") %}
     {{ row.sold_by_name or (row.sold_by_email.split("@")[0] if row.sold_by_email else "—") }}
   {% endcall %}
   {% call table_cell("Actions", action=true, class_="text-end") %}
