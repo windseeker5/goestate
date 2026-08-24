@@ -12,7 +12,7 @@ def register(app):
         db = get_db()
         asset_count = db.execute("SELECT COUNT(*) FROM assets").fetchone()[0]
         asset_total = db.execute(
-            "SELECT COALESCE(SUM(estimated_value), 0) FROM assets"
+            "SELECT COALESCE(SUM(COALESCE(sale_price, estimated_value)), 0) FROM assets"
         ).fetchone()[0]
         liability_count = db.execute(
             "SELECT COUNT(*) FROM liabilities WHERE status != 'Paid'"
