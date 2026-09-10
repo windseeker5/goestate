@@ -47,6 +47,23 @@ def register(app):
             attach_documents(db, None, None, files)
         return redirect(url_for("list_documents"))
 
+    @app.route("/app/documents/<int:document_id>/inspect")
+    def inspect_document(document_id):
+        db = get_db()
+        doc = db.execute("SELECT * FROM documents WHERE id = ?", (document_id,)).fetchone()
+        if doc is None:
+            abort(404)
+        chunks = db.execute(
+            "SELECT chunk_index, chunk_text FROM doc_chunk_meta "
+            "WHERE document_id = ? ORDER BY chunk_index",
+            (document_id,),
+        ).fetchall()
+        return render_template(
+            "blocks/document_inspect.html",
+            document=doc,
+            chunks=chunks,
+        )
+
     @app.route("/app/documents/<int:document_id>/view")
     def view_document(document_id):
         db = get_db()

@@ -120,6 +120,7 @@ CREATE TABLE IF NOT EXISTS documents (
     ingestion_status    TEXT    DEFAULT 'pending',
                                             -- pending | parsed | embedded | error
     ingestion_error     TEXT,               -- error message if status = 'error'
+    extracted_markdown  TEXT,               -- complete Docling conversion before chunking
     created_at          TEXT    DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
@@ -255,6 +256,7 @@ def init_db_command():
             ("liabilities", "photo_mime_type", "TEXT"),
             ("events", "email_direction", "TEXT"),
             ("tasks", "assigned_to", "INTEGER REFERENCES users(id)"),
+            ("documents", "extracted_markdown", "TEXT"),
         )
         for table, column, column_type in migrations:
             existing_columns = {
