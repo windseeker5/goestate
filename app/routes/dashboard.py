@@ -4,6 +4,7 @@ from flask import g, redirect, render_template, request, url_for
 
 from app.auth import admin_required
 from app.db import get_db
+from app.document_storage import reindex_all_documents
 
 
 def register(app):
@@ -105,6 +106,11 @@ def register(app):
             return redirect(url_for("settings", saved=1))
 
         saved = request.args.get("saved") == "1"
+        reindexed = request.args.get("reindexed") == "1"
+        reindex_stats = {
+            key: request.args.get(key, type=int) or 0
+            for key in ("total", "succeeded", "failed", "missing", "chunks")
+        }
 
         rows = db.execute(
             "SELECT key, value FROM settings WHERE key IN "
@@ -112,4 +118,16 @@ def register(app):
         ).fetchall()
         current = {row["key"]: row["value"] for row in rows}
 
-        return render_template("blocks/settings_page.html", settings=current, saved=saved)
+        return render_template(
+            "blocks/settings_page.html",
+            settings=current,
+            saved=saved,
+            reindexed=reindexed,
+            reindex_stats=reindex_stats,
+        )
+
+    @app.route("/app/settings/reindex", methods=["POST"])
+    @admin_required
+    def reindex_documents():
+        stats = reindex_all_documents(get_db())
+        return redirect(url_for("settings", reindexed=1, **stats))

@@ -87,3 +87,39 @@ def attach_documents(db, entity_type, entity_id, files):
         # page (see routes/documents.py) — acceptable for a single-user local
         # app, no background job queue needed.
         ingest_document(db, document_id, dest_path, linked_entity_type=entity_type, linked_entity_id=entity_id)
+
+
+def reindex_all_documents(db):
+    """Re-parse and re-embed every stored document, preserving its linkage."""
+    docs = db.execute(
+        "SELECT id, filename, filepath, linked_entity_type, linked_entity_id "
+        "FROM documents ORDER BY id"
+    ).fetchall()
+    uploads_dir = documents_uploads_dir()
+    stats = {"succeeded": 0, "failed": 0, "missing": 0, "total": len(docs)}
+
+    for doc in docs:
+        path = os.path.join(uploads_dir, doc["filepath"])
+        if not os.path.exists(path):
+            db.execute(
+                "UPDATE documents SET ingestion_status = 'error', ingestion_error = ? WHERE id = ?",
+                ("Original file no longer exists on disk.", doc["id"]),
+            )
+            db.commit()
+            stats["missing"] += 1
+            continue
+
+        ingest_document(
+            db,
+            doc["id"],
+            path,
+            linked_entity_type=doc["linked_entity_type"],
+            linked_entity_id=doc["linked_entity_id"],
+        )
+        status = db.execute(
+            "SELECT ingestion_status FROM documents WHERE id = ?", (doc["id"],)
+        ).fetchone()[0]
+        stats["succeeded" if status == "embedded" else "failed"] += 1
+
+    stats["chunks"] = db.execute("SELECT COUNT(*) FROM doc_chunk_meta").fetchone()[0]
+    return stats

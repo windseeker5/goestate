@@ -76,5 +76,6 @@ retrieve) works correctly end-to-end.
 |---|---|
 | `make_sample_pdf.py` | Generates a mock funeral home invoice PDF fixture (dev-only, needs `reportlab`) |
 | `ingest_poc.py` | The full pipeline: parse → chunk → embed → store → retrieve |
+| `compare_ocr.py` | Isolated Docling versus GLM-OCR PDF comparison |
 | `sample_docs/` | Generated PDF fixture lives here (gitignored) |
 | `poc_vectors.db` | Throwaway sqlite-vec database created by the script (gitignored) |
