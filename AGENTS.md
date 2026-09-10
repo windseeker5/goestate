@@ -5,6 +5,15 @@ to work within this Flask/Jinja starter.
 
 ---
 
+## Communication Rules
+
+- Keep every answer short, clear, and easy to understand.
+- If the developer needs to take an action, state that action at the beginning
+  of the message. This takes priority over explanations or background.
+- Always state the next step at the end of the message.
+
+---
+
 ## Stack
 
 - **Flask** + **Jinja** = server-side rendering, always.

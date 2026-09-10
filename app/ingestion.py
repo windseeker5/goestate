@@ -49,6 +49,13 @@ os.environ.setdefault("TORCHDYNAMO_DISABLE", "1")
 EMBED_MODEL_ID = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 EMBED_DIM = 384
 
+# Common Canadian/French document abbreviations often do not appear in the
+# extracted PDF text. Expand them before embedding so a short query such as
+# "NAS" can retrieve a chunk labelled "Numéro d'assurance sociale".
+QUERY_ALIASES = {
+    "nas": "numéro d'assurance sociale",
+}
+
 _embed_model = None
 _document_converter = None
 _chunker = None
@@ -224,7 +231,32 @@ def search_chunks(db, query_text, top_k=5):
     Returns a list of dicts: {chunk_text, distance, document_id, filename,
     linked_entity_type, linked_entity_id}.
     """
-    query_emb = embed_texts([query_text])[0]
+    normalized_query = query_text
+    exact_phrases = []
+    for abbreviation, expansion in QUERY_ALIASES.items():
+        if abbreviation in query_text.lower().split():
+            normalized_query = f"{query_text} ({expansion})"
+            exact_phrases.append(expansion)
+            break
+
+    lexical_rows = []
+    for phrase in exact_phrases:
+        lexical_rows.extend(
+            db.execute(
+                """
+                SELECT m.chunk_text, m.document_id, doc.filename,
+                       m.linked_entity_type, m.linked_entity_id
+                FROM doc_chunk_meta m
+                JOIN documents doc ON doc.id = m.document_id
+                WHERE lower(m.chunk_text) LIKE lower(?)
+                LIMIT ?
+                """,
+                (f"%{phrase}%", top_k),
+            ).fetchall()
+        )
+
+    seen = {row[1] for row in lexical_rows}
+    query_emb = embed_texts([normalized_query])[0]
     query_packed = pack_embedding(query_emb)
 
     rows = db.execute(
@@ -245,7 +277,18 @@ def search_chunks(db, query_text, top_k=5):
         (query_packed, top_k),
     ).fetchall()
 
-    return [
+    results = [
+        {
+            "chunk_text": row[0],
+            "distance": 0.0,
+            "document_id": row[1],
+            "filename": row[2],
+            "linked_entity_type": row[3],
+            "linked_entity_id": row[4],
+        }
+        for row in lexical_rows
+    ]
+    results.extend([
         {
             "chunk_text": row[0],
             "distance": row[1],
@@ -255,4 +298,6 @@ def search_chunks(db, query_text, top_k=5):
             "linked_entity_id": row[5],
         }
         for row in rows
-    ]
+        if row[2] not in seen
+    ])
+    return results[:top_k]
