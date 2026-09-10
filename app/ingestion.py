@@ -22,6 +22,9 @@ calls in the same process don't reload it.
 
 import os
 import struct
+import time
+
+from flask import current_app
 
 # Docling's layout model tries to use torch.compile (TorchDynamo/Inductor)
 # for a speed boost, which requires an MSVC C++ compiler (cl.exe) on
@@ -47,6 +50,8 @@ EMBED_MODEL_ID = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 EMBED_DIM = 384
 
 _embed_model = None
+_document_converter = None
+_chunker = None
 
 
 def get_embed_model():
@@ -57,6 +62,31 @@ def get_embed_model():
 
         _embed_model = TextEmbedding(model_name=EMBED_MODEL_ID)
     return _embed_model
+
+
+def get_document_converter():
+    """Lazily create one reusable Docling converter per application process."""
+    global _document_converter
+    if _document_converter is None:
+        from docling.document_converter import DocumentConverter
+
+        _document_converter = DocumentConverter()
+    return _document_converter
+
+
+def get_chunker():
+    """Lazily create the tokenizer-aware Docling chunker."""
+    global _chunker
+    if _chunker is None:
+        from docling.chunking import HybridChunker
+        from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer
+        from transformers import AutoTokenizer
+
+        tokenizer = HuggingFaceTokenizer(
+            tokenizer=AutoTokenizer.from_pretrained(EMBED_MODEL_ID)
+        )
+        _chunker = HybridChunker(tokenizer=tokenizer)
+    return _chunker
 
 
 def embed_texts(texts):
@@ -71,27 +101,23 @@ def pack_embedding(values):
     return struct.pack(f"{EMBED_DIM}f", *values)
 
 
-def parse_and_chunk(filepath):
-    """Parse a document with Docling and split it into chunks.
+def parse_document(filepath):
+    """Convert a document to Markdown and split it into embedding chunks.
 
-    Returns a list of chunk text strings (contextualized — i.e. including
-    any relevant section heading context, which is what should be embedded
-    per Docling's own recommendation).
+    Returns ``(markdown, chunk_texts)``. The Markdown is Docling's complete
+    conversion of the source document. The chunks are contextualized with
+    relevant headings and are the exact strings sent to the embedding model.
     """
-    from docling.chunking import HybridChunker
-    from docling.document_converter import DocumentConverter
-    from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer
-    from transformers import AutoTokenizer
+    converter = get_document_converter()
+    chunker = get_chunker()
 
-    converter = DocumentConverter()
     result = converter.convert(filepath)
     doc = result.document
-
-    tokenizer = HuggingFaceTokenizer(tokenizer=AutoTokenizer.from_pretrained(EMBED_MODEL_ID))
-    chunker = HybridChunker(tokenizer=tokenizer)
     chunks = list(chunker.chunk(dl_doc=doc))
 
-    return [chunker.contextualize(chunk=chunk) for chunk in chunks]
+    markdown_text = doc.export_to_markdown()
+    chunk_texts = [chunker.contextualize(chunk=chunk) for chunk in chunks]
+    return markdown_text, chunk_texts
 
 
 def ingest_document(db, document_id, filepath, linked_entity_type=None, linked_entity_id=None):
@@ -103,12 +129,24 @@ def ingest_document(db, document_id, filepath, linked_entity_type=None, linked_e
     Safe to call multiple times for the same document_id — old chunks for
     that document are deleted first.
     """
+    started_at = time.monotonic()
+    filename = os.path.basename(filepath)
+    current_app.logger.info("Ingestion started: document_id=%s file=%s", document_id, filename)
+
     try:
-        chunk_texts = parse_and_chunk(filepath)
+        markdown_text, chunk_texts = parse_document(filepath)
+        current_app.logger.info(
+            "Document parsed: document_id=%s file=%s markdown_chars=%s chunks=%s",
+            document_id,
+            filename,
+            len(markdown_text),
+            len(chunk_texts),
+        )
 
         db.execute(
-            "UPDATE documents SET ingestion_status = 'parsed' WHERE id = ?",
-            (document_id,),
+            "UPDATE documents SET ingestion_status = 'parsed', ingestion_error = NULL, "
+            "extracted_markdown = ? WHERE id = ?",
+            (markdown_text, document_id),
         )
         db.commit()
 
@@ -118,6 +156,12 @@ def ingest_document(db, document_id, filepath, linked_entity_type=None, linked_e
                 ("Docling produced no chunks (empty or unparseable document).", document_id),
             )
             db.commit()
+            current_app.logger.warning(
+                "Ingestion stopped: document_id=%s file=%s reason=no_chunks duration_seconds=%.1f",
+                document_id,
+                filename,
+                time.monotonic() - started_at,
+            )
             return False
 
         embeddings = embed_texts(chunk_texts)
@@ -150,9 +194,22 @@ def ingest_document(db, document_id, filepath, linked_entity_type=None, linked_e
             (document_id,),
         )
         db.commit()
+        current_app.logger.info(
+            "Ingestion complete: document_id=%s file=%s embeddings=%s duration_seconds=%.1f",
+            document_id,
+            filename,
+            len(embeddings),
+            time.monotonic() - started_at,
+        )
         return True
 
     except Exception as exc:  # noqa: BLE001 - want to record any failure reason
+        current_app.logger.exception(
+            "Ingestion failed: document_id=%s file=%s duration_seconds=%.1f",
+            document_id,
+            filename,
+            time.monotonic() - started_at,
+        )
         db.execute(
             "UPDATE documents SET ingestion_status = 'error', ingestion_error = ? WHERE id = ?",
             (str(exc)[:2000], document_id),

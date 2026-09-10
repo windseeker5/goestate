@@ -33,12 +33,14 @@
       {% for doc in documents %}
       <tr>
         <td data-label="Uploaded" class="text-muted-foreground">{{ doc.created_at.split("T")[0] if doc.created_at else "—" }}</td>
-        <td data-label="Filename" data-cell-primary class="font-medium">
-          {% if doc.filepath %}
-          <a href="{{ url_for('view_document', document_id=doc.id) }}" target="_blank" rel="noopener" class="table-cell-summary hover:underline text-foreground" title="{{ doc.filename }}">{{ doc.filename }}</a>
-          {% else %}
-          <span class="table-cell-summary" title="{{ doc.filename }}">{{ doc.filename }}</span>
-          {% endif %}
+        <td data-label="Filename" data-cell-primary>
+          <span class="table-cell-summary font-medium text-foreground" title="{{ doc.filename }}">{{ doc.filename }}</span>
+          <span class="mt-1 flex items-center gap-3 text-xs font-medium">
+            {% if doc.filepath %}
+            <a href="{{ url_for('view_document', document_id=doc.id) }}" target="_blank" rel="noopener" class="text-muted-foreground hover:underline">PDF</a>
+            {% endif %}
+            <a href="{{ url_for('inspect_document', document_id=doc.id) }}" class="hover:underline">Inspect extraction</a>
+          </span>
         </td>
         {% if show_linked_column %}
         <td data-label="Linked to">
@@ -80,6 +82,11 @@
               "attrs": {"target": "_blank", "rel": "noopener"}
             }) %}
           {% endif %}
+          {% set _ = doc_actions.append({
+            "label": "Inspect extraction",
+            "url": url_for('inspect_document', document_id=doc.id),
+            "icon": '<svg class="lucide lucide-file-search" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h7"/><path d="M14 2v6h6"/><path d="M16.5 17.5 19 20"/><circle cx="14" cy="15" r="3"/></svg>'
+          }) %}
           {% set _ = doc_actions.append({
             "label": "Re-index",
             "icon": '<svg class="lucide lucide-refresh-cw" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>',
