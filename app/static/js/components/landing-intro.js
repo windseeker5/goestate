@@ -15,10 +15,6 @@
   window.lpIntroStarted = true;
 
   const q = new URLSearchParams(location.search);
-  const forced = q.has("intro") || q.has("t") || q.has("beat");
-  if (!forced) {
-    try { sessionStorage.setItem("lpIntroSeen", "1"); } catch (_) {}
-  }
 
   const hero = document.getElementById("hero");
   const stage = hero.querySelector(".lpi");

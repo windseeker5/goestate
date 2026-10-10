@@ -18,13 +18,11 @@
   (() => {
     const q = new URLSearchParams(location.search);
     const forced = q.has("intro") || q.has("t") || q.has("beat");
-    let seen = false;
-    try { seen = sessionStorage.getItem("lpIntroSeen") === "1"; } catch (_) {}
     const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
     // The scenes are drawn for a wide canvas; below 640px they'd be unreadable.
     // Phones get the hero directly until there is a portrait version.
     const narrow = innerWidth < 640;
-    if (q.get("intro") === "off" || (!forced && (seen || calm || narrow))) return;
+    if (q.get("intro") === "off" || (!forced && (calm || narrow))) return;
     document.documentElement.classList.add("lpi-on");
     // Fail-safe: if the animation script never starts, show the hero anyway.
     setTimeout(() => {
