@@ -48,6 +48,10 @@
           <a href="{{ url_for('detail_asset', item_id=doc.linked_entity_id) }}" class="hover:underline">{{ doc.linked_asset_name }}</a>
           {% elif doc.linked_liability_name %}
           <a href="{{ url_for('detail_liability', item_id=doc.linked_entity_id) }}" class="hover:underline">{{ doc.linked_liability_name }}</a>
+          {% elif doc.linked_entity_type == 'opening_balance' %}
+          <a href="{{ url_for('money_overview') }}" class="hover:underline">Bank: starting balance</a>
+          {% elif doc.linked_entity_type == 'reconciliation' %}
+          <a href="{{ url_for('money_overview') }}#bank-checks" class="hover:underline">Bank check</a>
           {% else %}
           <span class="text-muted-foreground">—</span>
           {% endif %}

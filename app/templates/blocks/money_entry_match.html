@@ -1,0 +1,67 @@
+{# The one question "Add entry" asks before saving money that comes in:
+   is this an item the estate was already waiting for? Nothing has been
+   written when this page shows — "Yes" saves the entry AND marks the item
+   In bank account in one step, "No" saves just the entry. #}
+{% extends "layouts/app.html" %}
+{% from "components/page_header.html" import page_header %}
+{% from "components/alert.html" import alert %}
+
+{% block title %}Is this money you were expecting? – Estate Copilot{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('money_overview') }}" class="hover:underline text-muted-foreground">Money</a>
+  <span class="mx-2 text-muted-foreground">/</span>
+  <span class="text-muted-foreground">Add entry</span>
+  <span class="mx-2 text-muted-foreground">/</span>
+  Expected money
+{% endblock %}
+
+{% block content %}
+{{ page_header(
+  title="Is this money you were expecting?",
+  description="You are adding " ~ (amount_cents|cents) ~ " to " ~ account_text ~ " on " ~ form.entry_date ~ "."
+) }}
+
+<div class="max-w-2xl">
+  {% if error %}{{ alert(message=error, variant="destructive") }}{% endif %}
+
+  <form method="post" action="{{ url_for('money_new_entry') }}" class="card">
+    <input type="hidden" name="next" value="{{ next_url }}">
+    <input type="hidden" name="account_id" value="{{ form.account_id }}">
+    <input type="hidden" name="category" value="{{ form.category }}">
+    <input type="hidden" name="amount" value="{{ form.amount }}">
+    <input type="hidden" name="entry_date" value="{{ form.entry_date }}">
+    <input type="hidden" name="description" value="{{ form.description }}">
+
+    <header>
+      <h2>{{ "This looks like something you were waiting for" if matches|length == 1 else "These items are worth the same amount" }}</h2>
+      <p>If it's the same money, we mark the item <strong class="font-semibold">In bank account</strong> for you, so it isn't counted twice.</p>
+    </header>
+
+    <section>
+      <ul class="grid gap-3">
+        {% for m in matches %}
+        <li>
+          <label class="flex min-h-11 items-start gap-3 rounded-lg border p-4 {{ 'cursor-pointer has-[:checked]:border-primary has-[:checked]:bg-muted/50' if matches|length > 1 else '' }}">
+            {% if matches|length > 1 %}
+            <input class="input mt-0.5 shrink-0" type="radio" name="link_asset" value="{{ m.id }}" required>
+            {% else %}
+            <input type="hidden" name="link_asset" value="{{ m.id }}">
+            {% endif %}
+            <span class="min-w-0">
+              <span class="block break-words font-medium">{{ m.name }}</span>
+              <span class="block text-sm text-muted-foreground">{{ m.status }} · {{ m.cents|cents }}</span>
+            </span>
+          </label>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <footer class="flex-wrap justify-end gap-2">
+      <a href="{{ url_for('money_new_entry', account=form.account_id, category=form.category, amount=form.amount, entry_date=form.entry_date, description=form.description, next=next_url) }}" class="btn h-auto min-h-11 whitespace-normal py-2 text-center" data-variant="ghost">Change the entry</a>
+      <button type="submit" name="decision" value="separate" class="btn h-auto min-h-11 whitespace-normal py-2 text-center" data-variant="outline">No, it's something else</button>
+      <button type="submit" name="decision" value="link" class="btn h-auto min-h-11 whitespace-normal py-2 text-center">Yes, it's the same money</button>
+    </footer>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,143 @@
+{% extends "layouts/app.html" %}
+{% from "components/page_header.html" import page_header %}
+{% from "components/alert.html" import alert %}
+{% from "components/statement_picker.html" import statement_picker %}
+
+{% block title %}Check with the bank – Estate Copilot{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('money_overview') }}" class="hover:underline text-muted-foreground">Money</a>
+  <span class="mx-2 text-muted-foreground">/</span>
+  Check with the bank
+{% endblock %}
+
+{% set is_admin = g.user.role == "admin" %}
+
+{% block content %}
+{{ page_header(title="Check with the bank", description="Compare the entries with a bank printout or statement — any date, as often as you like.") }}
+
+{% if error %}{{ alert(message=error, variant="destructive") }}{% endif %}
+
+<div class="max-w-3xl grid gap-6">
+  {# Step 1: which statement #}
+  <div class="card">
+    <header>
+      <h2>1. The bank statement</h2>
+      <p>Type the date and the balance printed on it.
+        {% if last_check %}The last check was on {{ last_check.statement_date }}.{% else %}This is the first check since the starting balance of {{ bank.opening_date }}.{% endif %}
+      </p>
+    </header>
+    <section>
+      <form method="get" class="grid gap-4 sm:grid-cols-3 sm:items-end">
+        <div class="grid gap-2">
+          <label class="label" for="date">Statement date</label>
+          <input class="input" type="date" id="date" name="date" value="{{ statement_date }}" required>
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="balance">Balance on the statement</label>
+          <input class="input" type="text" inputmode="decimal" id="balance" name="balance" value="{{ statement_text }}" placeholder="12345.67" required autocomplete="off">
+        </div>
+        <div><button type="submit" class="btn" data-variant="{{ 'outline' if statement_cents is not none else '' }}">{{ "Update" if statement_cents is not none else "Next" }}</button></div>
+      </form>
+    </section>
+  </div>
+
+  {% if statement_cents is not none %}
+  {# Step 2: tick the lines #}
+  <form method="post" enctype="multipart/form-data" class="card" id="check-form">
+    <input type="hidden" name="statement_date" value="{{ statement_date }}">
+    <input type="hidden" name="statement_balance" value="{{ statement_text }}">
+    <header>
+      <h2>2. Tick the lines that appear on the statement</h2>
+      <p>Only lines up to {{ statement_date }} that haven't been checked before. A missing line (e.g. a bank fee)? <a class="underline" href="{{ url_for('money_new_entry', account='bank', category='bank_fees', next=request.full_path) }}">Add it</a>, then come back.</p>
+    </header>
+    <section class="grid gap-4">
+      {% if candidates %}
+      <div class="table-container rounded-lg border">
+        <table class="table">
+          <thead>
+            <tr>
+              <th class="w-8"><input type="checkbox" class="input" id="check-all" aria-label="Tick all lines"></th>
+              <th>Date</th>
+              <th>Description</th>
+              <th class="text-end">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for e in candidates %}
+            <tr>
+              <td><input type="checkbox" class="input" name="entry_ids" value="{{ e.id }}" data-cents="{{ e.amount_cents }}" aria-label="Tick {{ e.description }}" {% if ticked is none or e.id in ticked %}checked{% endif %}></td>
+              <td class="tabular-nums text-muted-foreground">{{ e.entry_date }}</td>
+              <td>{{ e.description or e.kind_label }} <span class="badge ms-1" data-variant="outline">{{ e.category_label }}</span></td>
+              <td class="text-end tabular-nums font-medium">{{ e.amount_cents|cents(signed=true) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-sm text-muted-foreground">No new lines up to this date. If the statement shows movements, add them first.</p>
+      {% endif %}
+
+      <dl class="grid gap-2 text-sm rounded-lg border p-4 bg-muted/30" id="check-summary"
+          data-start="{{ start_cents }}" data-statement="{{ statement_cents }}">
+        <div class="flex justify-between"><dt class="text-muted-foreground">Already agreed with the bank</dt><dd class="tabular-nums">{{ start_cents|cents }}</dd></div>
+        <div class="flex justify-between"><dt class="text-muted-foreground">+ Ticked lines</dt><dd class="tabular-nums" data-out="ticked">—</dd></div>
+        <div class="flex justify-between"><dt class="text-muted-foreground">= According to the app</dt><dd class="tabular-nums" data-out="calc">—</dd></div>
+        <div class="flex justify-between"><dt class="text-muted-foreground">Balance on the statement</dt><dd class="tabular-nums">{{ statement_cents|cents }}</dd></div>
+        <div class="flex justify-between pt-2 border-t font-semibold"><dt>Difference</dt><dd class="tabular-nums" data-out="diff">—</dd></div>
+      </dl>
+      <p class="text-sm" data-out="hint"></p>
+
+      {% if is_admin %}
+      {{ statement_picker(documents=unlinked_documents, id="check-statement") }}
+      {% endif %}
+    </section>
+    {% if is_admin %}
+    <footer class="justify-end gap-2">
+      <a href="{{ url_for('money_overview') }}" class="btn" data-variant="ghost">Cancel</a>
+      <button type="submit" class="btn" id="check-finish">Finish check</button>
+    </footer>
+    {% endif %}
+  </form>
+  {% endif %}
+</div>
+
+{% if statement_cents is not none %}
+<script>
+  // Live difference while ticking. The server recomputes it on Finish, so
+  // this is only guidance — it can't let an unbalanced check through.
+  (function () {
+    var summary = document.getElementById("check-summary");
+    var start = parseInt(summary.dataset.start, 10);
+    var statement = parseInt(summary.dataset.statement, 10);
+    var boxes = Array.prototype.slice.call(document.querySelectorAll('input[name="entry_ids"]'));
+    var fmt = new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" });
+    var out = function (k) { return document.querySelector('[data-out="' + k + '"]'); };
+    var finish = document.getElementById("check-finish");
+    var all = document.getElementById("check-all");
+
+    function update() {
+      var ticked = boxes.filter(function (b) { return b.checked; })
+                        .reduce(function (s, b) { return s + parseInt(b.dataset.cents, 10); }, 0);
+      var calc = start + ticked;
+      var diff = statement - calc;
+      out("ticked").textContent = fmt.format(ticked / 100);
+      out("calc").textContent = fmt.format(calc / 100);
+      out("diff").textContent = fmt.format(diff / 100);
+      out("diff").className = "tabular-nums " + (diff === 0 ? "text-green-600 dark:text-green-400" : "text-destructive");
+      out("hint").textContent = diff === 0
+        ? "Everything matches. Click Finish to lock these lines."
+        : "Not matching yet: untick lines that are not on the statement, or add the missing ones.";
+      if (finish) finish.disabled = diff !== 0;
+      if (all) all.checked = boxes.length > 0 && boxes.every(function (b) { return b.checked; });
+    }
+    boxes.forEach(function (b) { b.addEventListener("change", update); });
+    if (all) all.addEventListener("change", function () {
+      boxes.forEach(function (b) { b.checked = all.checked; });
+      update();
+    });
+    update();
+  })();
+</script>
+{% endif %}
+{% endblock %}

@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS liabilities (
     due_date        TEXT,               -- ISO date string YYYY-MM-DD
     status          TEXT    DEFAULT 'Unpaid',
                                         -- Unpaid | Paid | Disputed | Cancelled
+    category        TEXT,               -- money category key, see app/money.py CATEGORIES
     notes           TEXT,
     photo_path      TEXT,               -- relative to instance/uploads/ledger-photos/
     photo_mime_type TEXT,
@@ -115,13 +116,69 @@ CREATE TABLE IF NOT EXISTS documents (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     filename            TEXT    NOT NULL,
     filepath            TEXT    NOT NULL,   -- relative to instance/uploads/
-    linked_entity_type  TEXT,               -- 'asset' | 'liability' | 'event' | NULL
+    linked_entity_type  TEXT,               -- 'asset' | 'liability' | 'event' | 'opening_balance' | 'reconciliation' | NULL
     linked_entity_id    INTEGER,
     ingestion_status    TEXT    DEFAULT 'pending',
                                             -- pending | parsed | embedded | error
     ingestion_error     TEXT,               -- error message if status = 'error'
     extracted_markdown  TEXT,               -- complete Docling conversion before chunking
     created_at          TEXT    DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+-- ──────────────────────────────────────────────────────────
+-- Push notification subscriptions (Web Push, one row per subscribed device)
+-- ──────────────────────────────────────────────────────────
+
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id     INTEGER NOT NULL REFERENCES users(id),
+    endpoint    TEXT    NOT NULL UNIQUE,  -- browser/OS push service URL, identifies the device
+    p256dh      TEXT    NOT NULL,         -- subscription public key, for payload encryption
+    auth        TEXT    NOT NULL,         -- subscription auth secret, for payload encryption
+    created_at  TEXT    DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+-- ──────────────────────────────────────────────────────────
+-- Money: the estate bank account + cash each helper holds
+-- ──────────────────────────────────────────────────────────
+-- Amounts are INTEGER cents (never REAL) so totals never drift by a cent.
+-- See app/money.py for every read/write of these tables.
+
+CREATE TABLE IF NOT EXISTS money_accounts (
+    id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+    name                    TEXT    NOT NULL,
+    kind                    TEXT    NOT NULL,          -- 'bank' (one row) | 'held' (one per person)
+    user_id                 INTEGER REFERENCES users(id),  -- set for kind='held'
+    opening_balance_cents   INTEGER,                   -- bank only; NULL until set up
+    opening_date            TEXT,                      -- bank only; ISO YYYY-MM-DD
+    created_at              TEXT    DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+CREATE TABLE IF NOT EXISTS money_entries (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    entry_date          TEXT    NOT NULL,              -- ISO YYYY-MM-DD
+    account_id          INTEGER NOT NULL REFERENCES money_accounts(id),
+    amount_cents        INTEGER NOT NULL,              -- signed: + money in, - money out
+    kind                TEXT    NOT NULL,              -- sale | deposit | bill | income | fee | interest | adjustment | other
+    category            TEXT,                          -- app/money.py CATEGORIES; NULL for deposits and corrections
+    description         TEXT,
+    asset_id            INTEGER REFERENCES assets(id),
+    liability_id        INTEGER REFERENCES liabilities(id),
+    transfer_id         TEXT,                          -- shared by the two halves of a deposit
+    reconciliation_id   INTEGER REFERENCES reconciliations(id),  -- set = checked against the bank, locked
+    created_by          INTEGER REFERENCES users(id),
+    created_at          TEXT    DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_money_entries_account ON money_entries(account_id, entry_date);
+
+CREATE TABLE IF NOT EXISTS reconciliations (
+    id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id              INTEGER NOT NULL REFERENCES money_accounts(id),
+    statement_date          TEXT    NOT NULL,          -- ISO YYYY-MM-DD
+    statement_balance_cents INTEGER NOT NULL,
+    completed_by            INTEGER REFERENCES users(id),
+    completed_at            TEXT    DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
 -- ──────────────────────────────────────────────────────────
@@ -236,69 +293,83 @@ END;
 # Commands
 # ---------------------------------------------------------------------------
 
+def upgrade_schema(db, log=lambda message: None):
+    """Create missing tables, add missing columns, rebuild the FTS indexes.
+
+    Shared by `flask init-db` and the Settings restore flow (which upgrades an
+    older backup before it replaces the live database).
+    """
+    db.executescript(SCHEMA_SQL)
+    db.commit()
+
+    # Lightweight migrations for existing databases. CREATE TABLE IF NOT
+    # EXISTS above only supplies new columns when creating a fresh DB.
+    migrations = (
+        ("users", "name", "TEXT"),
+        ("assets", "photo_path", "TEXT"),
+        ("assets", "photo_mime_type", "TEXT"),
+        ("assets", "sold_by", "INTEGER REFERENCES users(id)"),
+        ("liabilities", "photo_path", "TEXT"),
+        ("liabilities", "photo_mime_type", "TEXT"),
+        ("events", "email_direction", "TEXT"),
+        ("tasks", "assigned_to", "INTEGER REFERENCES users(id)"),
+        ("documents", "extracted_markdown", "TEXT"),
+        ("liabilities", "category", "TEXT"),
+        ("money_entries", "category", "TEXT"),
+    )
+    for table, column, column_type in migrations:
+        existing_columns = {
+            row["name"] for row in db.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+        if column not in existing_columns:
+            db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}")
+            db.commit()
+            log(f"  [OK] Migrated: added {table}.{column} column.")
+
+            if table == "tasks" and column == "assigned_to":
+                # Existing tasks had no assignee concept — keep them
+                # assigned to their creator rather than leaving every
+                # pre-existing task unassigned after this migration.
+                db.execute("UPDATE tasks SET assigned_to = user_id WHERE assigned_to IS NULL")
+                db.commit()
+                log("  [OK] Backfilled tasks.assigned_to from tasks.user_id.")
+
+    # Backfill the FTS indexes. The sync triggers only fire on rows written
+    # after the triggers exist, so an existing database would otherwise have
+    # empty indexes and chat would find no events or tasks at all.
+    #
+    # This rebuilds unconditionally rather than skipping when already
+    # populated. There is no cheap way to ask an external-content FTS5 table
+    # whether its index is empty — COUNT(*) reads through to the content
+    # table and reports the source row count even when nothing is indexed —
+    # and these tables are small enough that rebuilding is instant. It also
+    # makes `init-db` the repair path if an index ever drifts out of sync.
+    for fts_table, source in (("events_fts", "events"), ("tasks_fts", "tasks")):
+        db.execute(f"INSERT INTO {fts_table}({fts_table}) VALUES('rebuild')")
+        db.commit()
+        indexed = db.execute(f"SELECT COUNT(*) FROM {source}").fetchone()[0]
+        log(f"  [OK] Built {fts_table} search index ({indexed} rows).")
+
+    # One-time conversion of the old per-asset Sold/Transferred tracking into
+    # money entries. Guarded by a settings flag, so it runs once per database
+    # (including an older backup being restored).
+    from app.money import backfill_categories, backfill_from_assets
+    backfill_from_assets(db, log)
+    backfill_categories(db, log)
+
+
 @click.command("init-db")
 @with_appcontext
 def init_db_command():
     """Create all database tables. Safe to run multiple times (IF NOT EXISTS)."""
     db = open_db()
     try:
-        db.executescript(SCHEMA_SQL)
-        db.commit()
-
-        # Lightweight migrations for existing databases. CREATE TABLE IF NOT
-        # EXISTS above only supplies new columns when creating a fresh DB.
-        migrations = (
-            ("users", "name", "TEXT"),
-            ("assets", "photo_path", "TEXT"),
-            ("assets", "photo_mime_type", "TEXT"),
-            ("assets", "sold_by", "INTEGER REFERENCES users(id)"),
-            ("liabilities", "photo_path", "TEXT"),
-            ("liabilities", "photo_mime_type", "TEXT"),
-            ("events", "email_direction", "TEXT"),
-            ("tasks", "assigned_to", "INTEGER REFERENCES users(id)"),
-            ("documents", "extracted_markdown", "TEXT"),
-        )
-        for table, column, column_type in migrations:
-            existing_columns = {
-                row["name"] for row in db.execute(f"PRAGMA table_info({table})").fetchall()
-            }
-            if column not in existing_columns:
-                db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}")
-                db.commit()
-                click.echo(click.style(f"  [OK] Migrated: added {table}.{column} column.", fg="green"))
-
-                if table == "tasks" and column == "assigned_to":
-                    # Existing tasks had no assignee concept — keep them
-                    # assigned to their creator rather than leaving every
-                    # pre-existing task unassigned after this migration.
-                    db.execute("UPDATE tasks SET assigned_to = user_id WHERE assigned_to IS NULL")
-                    db.commit()
-                    click.echo(click.style(
-                        "  [OK] Backfilled tasks.assigned_to from tasks.user_id.", fg="green"
-                    ))
-
-        # Backfill the FTS indexes. The sync triggers only fire on rows written
-        # after the triggers exist, so an existing database would otherwise have
-        # empty indexes and chat would find no events or tasks at all.
-        #
-        # This rebuilds unconditionally rather than skipping when already
-        # populated. There is no cheap way to ask an external-content FTS5 table
-        # whether its index is empty — COUNT(*) reads through to the content
-        # table and reports the source row count even when nothing is indexed —
-        # and these tables are small enough that rebuilding is instant. It also
-        # makes `init-db` the repair path if an index ever drifts out of sync.
-        for fts_table, source in (("events_fts", "events"), ("tasks_fts", "tasks")):
-            db.execute(f"INSERT INTO {fts_table}({fts_table}) VALUES('rebuild')")
-            db.commit()
-            indexed = db.execute(f"SELECT COUNT(*) FROM {source}").fetchone()[0]
-            click.echo(click.style(
-                f"  [OK] Built {fts_table} search index ({indexed} rows).", fg="green"
-            ))
+        upgrade_schema(db, log=lambda message: click.echo(click.style(message, fg="green")))
 
         click.echo(click.style("  [OK] Database initialised.", fg="green"))
         click.echo(click.style("       Tables: users, assets, liabilities, events, tasks, documents,", dim=True))
-        click.echo(click.style("               settings, doc_chunks, doc_chunk_meta,", dim=True))
-        click.echo(click.style("               events_fts, tasks_fts", dim=True))
+        click.echo(click.style("               settings, push_subscriptions, money_accounts, money_entries,", dim=True))
+        click.echo(click.style("               reconciliations, doc_chunks, doc_chunk_meta, events_fts, tasks_fts", dim=True))
 
         # Print sqlite-vec version as confirmation the extension loaded.
         vec_version = db.execute("SELECT vec_version()").fetchone()[0]

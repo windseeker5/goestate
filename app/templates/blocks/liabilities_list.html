@@ -27,6 +27,7 @@
   {"key": "due_date", "label": "Due Date", "sortable": true, "class_": "w-28"},
   {"key": "description", "label": "Description", "sortable": true},
   {"key": "creditor", "label": "Creditor", "sortable": true},
+  {"key": "category", "label": "Category", "sortable": true, "class_": "w-44"},
   {"key": "amount",   "label": "Amount",   "sortable": true, "align": "end", "class_": "w-28"},
   {"key": "status",   "label": "Status",   "sortable": false, "class_": "w-28"},
   {"key": "_actions", "label": "",         "sortable": false, "align": "end", "class_": "w-28"}
@@ -50,6 +51,7 @@
       {% endif %}
     </span>
   {% endcall %}
+  {% call table_cell("Category", class_="text-muted-foreground") %}{{ category_labels.get(row.category, "—") }}{% endcall %}
   {% call table_cell("Amount", numeric=true, class_="text-end") %}{{ row.amount|money(zero_blank=true) }}{% endcall %}
   {% call table_cell("Status") %}
     <span class="badge" data-variant="{{ 'secondary' if row.status in ('Paid', 'Cancelled') else 'outline' }}">

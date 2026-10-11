@@ -2,6 +2,7 @@ from flask import abort, redirect, render_template, request, url_for
 
 from app.auth import admin_required
 from app.db import get_db
+from app.push import notify_all
 
 PAGE_SIZE = 10
 TYPES = ["Note", "Call", "Meeting", "Email", "Task"]
@@ -63,11 +64,12 @@ def register(app):
                     error="Choose whether this email was inbound or outbound.",
                 ), 400
             db = get_db()
+            title = request.form.get("title", "").strip()
             db.execute(
                 "INSERT INTO events (title, contact, type, email_direction, event_date, notes) "
                 "VALUES (?, ?, ?, ?, ?, ?)",
                 (
-                    request.form.get("title", "").strip(),
+                    title,
                     request.form.get("contact", "").strip(),
                     type_,
                     email_direction if type_ == "Email" else None,
@@ -76,6 +78,7 @@ def register(app):
                 ),
             )
             db.commit()
+            notify_all(db, "New timeline event", title, url_for("list_events"))
             return redirect(url_for("list_events"))
         return render_template("blocks/events_form.html", item=None, types=TYPES, form_data=None, error=None)
 

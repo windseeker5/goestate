@@ -1,0 +1,151 @@
+{#
+  Landing intro: a ~14 s story that plays over the hero, then hands off to the
+  real hero markup underneath (which stays the source of truth — the intro
+  never re-renders the headline, it only reveals it).
+
+  Must be the first child of the hero <section id="hero">. The inline script
+  decides *before the hero text paints* whether the intro will play, so there
+  is no flash of the hero followed by the intro. Animation itself lives in
+  static/js/components/landing-intro.js (GSAP timeline).
+
+  Every name, amount and document in here is invented. Never put real estate
+  data in this file — it is shown on the public page.
+
+  Draft tools (see landing-intro.js): ?intro=debug shows beat + timer,
+  ?t=6.2 freezes at that second, ?beat=3 freezes on that beat's hold frame.
+#}
+<script>
+  (() => {
+    const q = new URLSearchParams(location.search);
+    const forced = q.has("intro") || q.has("t") || q.has("beat");
+    const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // The scenes are drawn for a wide canvas; below 640px they'd be unreadable.
+    // Phones get the hero directly until there is a portrait version.
+    const narrow = innerWidth < 640;
+    if (q.get("intro") === "off" || (!forced && (calm || narrow))) return;
+    document.documentElement.classList.add("lpi-on");
+    // Fail-safe: if the animation script never starts, show the hero anyway.
+    setTimeout(() => {
+      if (!window.lpIntroStarted) document.documentElement.classList.remove("lpi-on");
+    }, 3000);
+  })();
+</script>
+
+<div class="lpi">
+  <div class="lpi-canvas" aria-hidden="true">
+
+    <p class="lpi-caption" data-cap="1">Hundreds of documents. One executor.</p>
+    <p class="lpi-caption" data-cap="2">Drop them all in.</p>
+    <p class="lpi-caption" data-cap="3">Then just ask.</p>
+    <p class="lpi-caption" data-cap="4">Your helpers log every sale. The final report builds itself.</p>
+    <p class="lpi-caption lpi-closing" data-cap="5">Grieving is hard enough.|The paperwork shouldn't be.</p>
+
+    {# ── Beat 1: the paper mountain ───────────────────────────────── #}
+    {% set docs = [
+      ("Relevé bancaire", "Banque"),
+      ("Facture d'électricité", "Facture"),
+      ("Lettre du notaire", "Notaire"),
+      ("Avis de cotisation", "Impôts"),
+      ("Police d'assurance", "Assurance"),
+      ("Testament", "Notaire"),
+      ("Taxes municipales", "Facture"),
+      ("Relevé de carte", "Banque"),
+      ("Contrat de location", "Contrat"),
+      ("Facture — chauffage", "Facture"),
+      ("Relevé REER", "Banque"),
+    ] %}
+    <div class="lpi-pile">
+      {% for title, tag in docs %}
+      <div class="lpi-doc">
+        <span class="lpi-doc-tag">{{ tag }}</span>
+        <span class="lpi-doc-title">{{ title }}</span>
+        <span class="lpi-line"></span><span class="lpi-line"></span>
+        <span class="lpi-line lpi-line-s"></span><span class="lpi-line"></span>
+        <span class="lpi-line lpi-line-s"></span>
+      </div>
+      {% endfor %}
+    </div>
+
+    {# ── Beat 2: everything goes into the app ─────────────────────── #}
+    <div class="lpi-window lpi-library">
+      <div class="lpi-win-head">
+        <span class="lpi-mark">GO</span>
+        <span class="lpi-win-title">Documents</span>
+        <span class="lpi-pill"><b class="lpi-count">0</b>&nbsp;indexed</span>
+      </div>
+      {% set rows = [
+        ("Police d'assurance.pdf", "2 p."),
+        ("Relevé bancaire — mars.pdf", "4 p."),
+        ("Lettre du notaire.pdf", "1 p."),
+        ("Avis de cotisation 2025.pdf", "3 p."),
+        ("Taxes municipales.pdf", "2 p."),
+      ] %}
+      {% for name, pages in rows %}
+      <div class="lpi-row">
+        <span class="lpi-file-ico"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></span>
+        <span class="lpi-row-name">{{ name }}</span>
+        <span class="lpi-row-meta">{{ pages }}</span>
+        <span class="lpi-row-status">
+          <span class="lpi-scan"><span class="lpi-scan-fill"></span></span>
+          <span class="lpi-check">✓</span>
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+
+    {# ── Beat 3: just ask ─────────────────────────────────────────── #}
+    <div class="lpi-window lpi-chat">
+      <div class="lpi-win-head">
+        <span class="lpi-mark">GO</span>
+        <span class="lpi-win-title">Chat</span>
+      </div>
+      <div class="lpi-chat-body">
+        <div class="lpi-q">Est-ce qu'il avait une assurance vie ?</div>
+        <div class="lpi-a">
+          <p>Oui. Police n° 4471, capital assuré de <b>25 000 $</b>, bénéficiaire : la succession.</p>
+          <span class="lpi-source">📄 Police d'assurance.pdf · p. 2</span>
+        </div>
+      </div>
+      <div class="lpi-input">Posez une question sur vos documents…</div>
+    </div>
+    <div class="lpi-paper">
+      <span class="lpi-paper-title">Police d'assurance vie</span>
+      <span class="lpi-paper-sub">Page 2 de 2</span>
+      <span class="lpi-line"></span><span class="lpi-line lpi-line-s"></span>
+      <span class="lpi-line"></span>
+      <span class="lpi-hl"><span class="lpi-hl-bg"></span>Capital assuré : 25 000 $<br>Bénéficiaire : la succession</span>
+      <span class="lpi-line"></span><span class="lpi-line lpi-line-s"></span>
+      <span class="lpi-line"></span>
+    </div>
+
+    {# ── Beat 4: the team and the final report ────────────────────── #}
+    {% set sales = [
+      ("JL", "Julie", "Voiture vendue", "8 500 $"),
+      ("MT", "Marc", "Table de salle à manger", "400 $"),
+      ("VO", "Vous", "Piano droit", "1 200 $"),
+    ] %}
+    <div class="lpi-window lpi-feed">
+      <div class="lpi-win-head">
+        <span class="lpi-mark">GO</span>
+        <span class="lpi-win-title">Activity</span>
+      </div>
+      {% for initials, who, what, amount in sales %}
+      <div class="lpi-sale">
+        <span class="lpi-avatar">{{ initials }}</span>
+        <span class="lpi-sale-text"><b>{{ who }}</b> · {{ what }}</span>
+        <span class="lpi-amount">{{ amount }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="lpi-paper lpi-report">
+      <span class="lpi-paper-title">Reddition de compte</span>
+      <span class="lpi-paper-sub">Final report · ready to file</span>
+      <span class="lpi-report-row"><span>Voiture</span><span>8 500 $</span></span>
+      <span class="lpi-report-row"><span>Table de salle à manger</span><span>400 $</span></span>
+      <span class="lpi-report-row"><span>Piano droit</span><span>1 200 $</span></span>
+      <span class="lpi-report-total"><span>Total des ventes</span><span class="lpi-total">0 $</span></span>
+    </div>
+
+  </div>
+  <button type="button" class="lpi-skip">Skip intro</button>
+</div>

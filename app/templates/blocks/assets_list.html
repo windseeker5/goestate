@@ -69,24 +69,8 @@
   {"key": "_actions",        "label": "",           "sortable": false, "align": "end", "class_": "w-28"}
 ] %}
 
-{% if g.user.role == "admin" %}
-{#
-  Standalone, non-wrapping form: the per-row "Delete" action below already
-  renders its own <form> inside the table body, so wrapping the whole table
-  in a second <form> here would nest <form> inside <form>, which is invalid
-  HTML. Instead this form has no children — the row checkboxes (rendered by
-  data_table via select_form) and the bulk-bar button below associate with it
-  via the HTML `form="asset-bulk-form"` attribute instead of DOM nesting.
-#}
-<form id="asset-bulk-form" method="post" action="{{ url_for('bulk_update_asset_status') }}"></form>
 
-<div data-bulk-actions-bar hidden class="flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-2 mb-3">
-  <span class="text-sm text-muted-foreground"><span data-bulk-selected-count>0</span> selected</span>
-  <button type="submit" form="asset-bulk-form" name="status" value="Transferred" class="btn" data-variant="outline" data-size="sm">Mark as Transferred</button>
-</div>
-{% endif %}
-
-{% call(row) data_table(columns=columns, rows=assets, sort=sort, order=order, base_url=url_for("list_assets"), responsive=true, selectable=(g.user.role == "admin"), select_name="asset_ids", select_form="asset-bulk-form", extra_params={"q": q, "sold_by": sold_by}) %}
+{% call(row) data_table(columns=columns, rows=assets, sort=sort, order=order, base_url=url_for("list_assets"), responsive=true, extra_params={"q": q, "sold_by": sold_by}) %}
   {% call table_cell("Date", numeric=true, class_="text-muted-foreground") %}{{ row.created_at.split("T")[0] if row.created_at else "—" }}{% endcall %}
   {% call table_cell("Name", primary=true, summary=true, summary_title=row.name, hide_label=true, class_="font-medium") %}
     <span class="inline-flex items-center gap-1.5">
@@ -105,9 +89,9 @@
   {% endcall %}
   {% call table_cell("Category") %}{{ row.category or "—" }}{% endcall %}
   {% call table_cell("Estimated value", numeric=true, class_="text-end") %}{{ row.estimated_value|money(zero_blank=true) }}{% endcall %}
-  {% call table_cell("Sale price", numeric=true, class_="text-end") %}{{ row.sale_price|money(zero_blank=true) }}{% endcall %}
+  {% call table_cell("Sale price", numeric=true, class_="text-end") %}{% if row.status == "Sold" and row.sale_price is not none and row.sale_price != "" and row.sale_price|float == 0 %}<span class="text-muted-foreground">Given away</span>{% else %}{{ row.sale_price|money(zero_blank=true) }}{% endif %}{% endcall %}
   {% call table_cell("Status") %}
-    <span class="badge" data-variant="{{ 'secondary' if row.status in ('Sold', 'Transferred') else 'outline' }}">
+    <span class="badge" data-variant="{{ 'secondary' if row.status in ('Sold', 'Transferred', 'In bank account') else 'outline' }}">
       {{ row.status }}
     </span>
   {% endcall %}

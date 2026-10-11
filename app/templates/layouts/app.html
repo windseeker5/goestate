@@ -2,13 +2,16 @@
 {% from "basecoat/sidebar.html.jinja" import sidebar %}
 {% from "components/bottom_nav.html" import bottom_nav %}
 {% from "components/theme_switch.html" import theme_switch %}
+{% from "components/push_toggle.html" import push_toggle %}
 {% from "components/brand.html" import brand_mark %}
 
 {% block body %}
+{# Skip link: first tab stop, visible only when focused (WCAG 2.4.1). #}
+<a href="#main" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow-md focus:outline-none focus:ring-[3px] focus:ring-ring/50">Skip to main content</a>
 {# Sidebar #}
 {#
   Sidebar navigation order (per UX design):
-    1. Dashboard  2. Tasks  3. Timeline  4. Assets  5. Liabilities  6. Chat  7. Settings (admin)
+    1. Dashboard  2. Tasks  3. Timeline  4. Assets  5. Liabilities  6. Money  7. Chat  8. Settings (admin)
     — Knowledge Base: Documents
   Users management is no longer in the sidebar — it lives inside Settings.
 #}
@@ -19,6 +22,7 @@
     { "type": "item", "label": "Timeline",    "url": url_for("list_events"),      "icon": '<svg class="lucide lucide-calendar-clock" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h5"/><path d="M17.5 17.5 16 16.25V14"/><circle cx="16" cy="16" r="6"/></svg>', "current": ("event" in request.endpoint) },
     { "type": "item", "label": "Assets",      "url": url_for("list_assets"),      "icon": '<svg class="lucide lucide-wallet" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>', "current": ("asset" in request.endpoint) },
     { "type": "item", "label": "Liabilities", "url": url_for("list_liabilities"), "icon": '<svg class="lucide lucide-receipt" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M14 8H8"/><path d="M16 12H8"/><path d="M13 16H8"/></svg>', "current": ("liability" in request.endpoint) },
+    { "type": "item", "label": "Money",       "url": url_for("money_overview"),   "icon": '<svg class="lucide lucide-landmark" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 18v-7"/><path d="M11.12 2.198a2 2 0 0 1 1.76.006l7.866 3.847c.476.233.31.949-.22.949H3.474c-.53 0-.695-.716-.22-.949z"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M3 22h18"/><path d="M6 18v-7"/></svg>', "current": (request.endpoint or "").startswith("money") },
     { "type": "item", "label": "Chat",        "url": url_for("chat"),             "icon": '<svg class="lucide lucide-message-square" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>', "current": (request.endpoint == "chat") }
   ] + ([{ "type": "item", "label": "Settings", "url": url_for("settings"), "icon": '<svg class="lucide lucide-settings" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></svg>', "current": (request.endpoint == "settings" or "user" in request.endpoint) }] if g.user and g.user.role == "admin" else []) },
   { "type": "group", "label": "Knowledge Base", "items": [
@@ -27,7 +31,7 @@
 ] %}
 
 {# The mobile bottom tab bar surfaces the four daily-use destinations; the
-   rest (Assets, Liabilities, Documents, Settings) stay one tap away behind
+   rest (Assets, Liabilities, Money, Documents, Settings) stay one tap away behind
    "More", which opens this same sidebar drawer. Selecting them out of
    nav_items by label reuses the icons and `current` predicates defined above
    instead of duplicating them, so the two navs can't drift apart. Reorder
@@ -71,6 +75,7 @@
 {% set name_parts = display_name.split(" ") %}
 {% set initials = (name_parts[0][0] ~ (name_parts[1][0] if name_parts|length > 1 else "")) | upper %}
 {{ theme_switch() }}
+{{ push_toggle(vapid_public_key) }}
 <div class="mt-2 flex items-center gap-2 px-2">
   <div class="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground font-semibold text-xs" title="{{ g.user.email }}">
     {{ initials }}
@@ -90,8 +95,8 @@
 
 {{ sidebar(menu=nav_items, header=sidebar_header, footer=sidebar_footer) }}
 
-{# Main content area #}
-<main>
+{# Main content area. tabindex=-1 lets the skip link move focus here. #}
+<main id="main" tabindex="-1" class="focus:outline-none">
   {# There used to be a mobile-only top header here whose entire contents were
      one hamburger button — 56px of vertical space on the most space-starved
      screen, spent on a control the bottom tab bar's "More" now provides in the

@@ -24,6 +24,11 @@ class Config:
     # Bind host for local dev and Docker reverse proxy access.
     HOST = os.environ.get("FLASK_RUN_HOST", "0.0.0.0")
 
+    # Web Push (see app/push.py). Notifications are simply not offered if unset.
+    VAPID_PUBLIC_KEY = os.environ.get("VAPID_PUBLIC_KEY")
+    VAPID_PRIVATE_KEY = os.environ.get("VAPID_PRIVATE_KEY")
+    VAPID_CLAIMS_EMAIL = os.environ.get("VAPID_CLAIMS_EMAIL")
+
 
 class DevConfig(Config):
     DEBUG = True

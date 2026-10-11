@@ -1,0 +1,6 @@
+{# Loads the file-upload enhancement. Pages that render components/file_upload.html
+   include this from their `scripts` block; it is not loaded on every page.
+
+     {% block scripts %}{% include "components/file_upload_script.html" %}{% endblock %}
+#}
+<script src="{{ url_for('static', filename='js/components/file_upload.js') }}?v={{ asset_version('js/components/file_upload.js') }}" defer></script>

@@ -1,0 +1,73 @@
+{#
+  The bank statement behind a confirmed balance: upload a PDF, or pick one
+  already in Documents (so it isn't uploaded — and indexed for chat — twice).
+  Used by the starting balance card and the bank check page; the route reads
+  `statement_file` / `statement_document` (app/routes/money.py _statement_choice).
+  The surrounding <form> must use enctype="multipart/form-data".
+
+  Uploading a PDF reads and indexes it for chat, which takes 30-60 seconds.
+  When a file is chosen, submitting the form shows a "please wait" message and
+  disables the form's buttons so the page never looks frozen (or gets sent twice).
+  Picking a document already in Documents is instant and shows nothing.
+
+  Usage:
+    from "components/statement_picker.html" import statement_picker
+    statement_picker(documents=unlinked_documents, id="opening-statement")
+
+  Params:
+    documents {list}    Unlinked documents (id, filename, created_at).
+    id        {string}  Prefix for the two field ids; unique per page.
+    required  {bool}    Show "(optional)" when false.
+#}
+{% macro statement_picker(documents, id="statement", required=false) %}
+<div class="grid gap-3 sm:grid-cols-2 sm:items-end">
+  <div class="grid gap-2">
+    <label class="label" for="{{ id }}-file">Statement PDF {% if not required %}<span class="text-muted-foreground font-normal">(optional)</span>{% endif %}</label>
+    <input class="input" type="file" id="{{ id }}-file" name="statement_file" accept="application/pdf">
+  </div>
+  {% if documents %}
+  <div class="grid gap-2">
+    <label class="label" for="{{ id }}-document">…or one already in Documents</label>
+    <select class="select w-full" id="{{ id }}-document" name="statement_document">
+      <option value="">—</option>
+      {% for d in documents %}
+      <option value="{{ d.id }}">{{ d.filename }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+</div>
+<p class="text-sm text-muted-foreground">The bank paper behind this balance — proof for the heirs and the accountant. It becomes searchable in chat.</p>
+<p class="flex items-center gap-2 text-sm font-medium" role="status" aria-live="polite" data-statement-busy hidden>
+  <svg class="lucide lucide-loader-circle size-5 shrink-0 animate-spin" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+  <span>Saving and reading your PDF. This takes up to a minute. Please keep this page open.</span>
+</p>
+<script>
+  (function () {
+    if (window.__statementBusyBound) return;
+    window.__statementBusyBound = true;
+    var busy = [];
+    document.addEventListener("submit", function (e) {
+      var form = e.target;
+      var note = form.querySelector && form.querySelector("[data-statement-busy]");
+      var file = form.querySelector && form.querySelector('input[type="file"][name="statement_file"]');
+      if (e.defaultPrevented || !note || !file || !file.files || !file.files.length) return;
+      note.hidden = false;
+      form.setAttribute("aria-busy", "true");
+      form.querySelectorAll('button[type="submit"]').forEach(function (b) {
+        busy.push({ b: b, label: b.textContent });
+        b.disabled = true;
+        b.textContent = "Saving…";
+      });
+    });
+    // Coming back with the browser's Back button must not leave a dead form.
+    window.addEventListener("pageshow", function (e) {
+      if (!e.persisted) return;
+      busy.forEach(function (x) { x.b.disabled = false; x.b.textContent = x.label; });
+      busy = [];
+      document.querySelectorAll("[data-statement-busy]").forEach(function (n) { n.hidden = true; });
+      document.querySelectorAll('form[aria-busy="true"]').forEach(function (f) { f.removeAttribute("aria-busy"); });
+    });
+  })();
+</script>
+{% endmacro %}

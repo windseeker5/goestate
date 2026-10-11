@@ -3,6 +3,10 @@
 
 {% block title %}Estate Copilot{% endblock %}
 
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/landing-intro.css') }}?v={{ asset_version('css/landing-intro.css') }}" />
+{% endblock %}
+
 {% block public_body %}
 
 {# ── Navbar ─────────────────────────────────────────────────── #}
@@ -32,7 +36,8 @@
 </nav>
 
 {# ── Hero ─────────────────────────────────────────────────────── #}
-<section class="mx-auto max-w-4xl px-4 py-24 text-center">
+<section id="hero" class="relative mx-auto max-w-4xl px-4 py-24 text-center">
+  {% include "components/landing_intro.html" %}
   <span class="badge mb-4" data-variant="secondary">Ultra-light &amp; local</span>
   <h1 class="text-4xl font-bold tracking-tight sm:text-6xl">
     Manage an estate,<br class="hidden sm:block" /> without the spreadsheet chaos.
@@ -91,4 +96,9 @@
   <p>Estate Copilot — built with Flask, Jinja, <a href="https://basecoatui.com" class="underline underline-offset-4 hover:text-foreground">Basecoat UI</a>, and Tailwind CSS.</p>
 </footer>
 
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/vendor/gsap.min.js') }}?v={{ asset_version('js/vendor/gsap.min.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/components/landing-intro.js') }}?v={{ asset_version('js/components/landing-intro.js') }}" defer></script>
 {% endblock %}

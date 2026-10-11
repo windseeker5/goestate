@@ -3,6 +3,7 @@
 {% from "components/alert.html" import alert %}
 {% from "components/file_upload.html" import file_upload %}
 {% from "basecoat/select.html.jinja" import select %}
+{% from "components/money_categories_help.html" import money_categories_help %}
 
 {% set is_edit = item is not none %}
 {% set values = form_data if form_data else item %}
@@ -22,7 +23,7 @@
 
 <div class="max-w-2xl">
   {% if error %}
-  {{ alert(title="Photo not saved", message=error, variant="destructive") }}
+  {{ alert(title="Not saved", message=error, variant="destructive") }}
   {% endif %}
 
   <div class="card">
@@ -46,6 +47,20 @@
             <label class="label" for="due_date">Due Date</label>
             <input class="input" type="date" id="due_date" name="due_date" value="{{ values.due_date if values and values.due_date else '' }}" />
           </div>
+        </div>
+        <div class="grid gap-2">
+          <div class="flex items-center gap-1">
+            <label class="label" for="category">Category</label>
+            {{ money_categories_help() }}
+          </div>
+          {% set picked = values.category if values and values.category else "" %}
+          <select class="select w-full" id="category" name="category">
+            <option value="" {% if not picked %}selected{% endif %}>Not set yet</option>
+            {% for key, label in categories %}
+            <option value="{{ key }}" {% if picked == key %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <p class="text-sm text-muted-foreground">Groups this bill in the final account to the heirs. You can also pick it when you record the payment.</p>
         </div>
         <div class="grid gap-2">
           <label class="label" for="status">Status</label>
@@ -105,3 +120,5 @@
 </div>
 
 {% endblock %}
+
+{% block scripts %}{% include "components/file_upload_script.html" %}{% endblock %}

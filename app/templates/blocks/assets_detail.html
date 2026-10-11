@@ -14,10 +14,19 @@
 
 {% block content %}
 
-{{ page_header(
-  title=item.name,
-  action=('<a href="' ~ url_for("edit_asset", item_id=item.id) ~ '" class="btn" data-variant="outline">Edit</a>') if g.user.role == "admin" else None
-) }}
+{# "Money received": for an item whose money hasn't arrived yet (Active or
+   Pending). It opens Add entry already filled in, tied to this item, so
+   saving it also marks the item In bank account — no second trip needed. #}
+{% set waiting_value = item.sale_price if (item.sale_price is not none and item.sale_price != "" and item.sale_price|float > 0) else item.estimated_value %}
+{% set header_actions %}
+<div class="flex flex-wrap gap-2">
+  {% if item.status in ("Active", "Pending") and waiting_value and waiting_value|float > 0 %}
+  <a href="{{ url_for('money_new_entry', account='bank', amount='%.2f'|format(waiting_value|float), description=item.name, link_asset=item.id, next=url_for('detail_asset', item_id=item.id)) }}" class="btn min-h-11">Money received</a>
+  {% endif %}
+  <a href="{{ url_for('edit_asset', item_id=item.id) }}" class="btn min-h-11" data-variant="outline">Edit</a>
+</div>
+{% endset %}
+{{ page_header(title=item.name, action=header_actions if g.user.role == "admin" else None) }}
 
 {% if error %}
 {{ alert(title="Photo not saved", message=error, variant="destructive") }}
@@ -38,12 +47,12 @@
         </div>
         <div>
           <dt class="text-xs text-muted-foreground uppercase tracking-wide">Sale Price</dt>
-          <dd class="mt-1 font-medium tabular-nums">{{ item.sale_price|money(zero_blank=true) }}</dd>
+          <dd class="mt-1 font-medium tabular-nums">{% if item.status == "Sold" and item.sale_price is not none and item.sale_price != "" and item.sale_price|float == 0 %}$0.00 <span class="text-muted-foreground font-normal">· given away</span>{% else %}{{ item.sale_price|money(zero_blank=true) }}{% endif %}</dd>
         </div>
         <div>
           <dt class="text-xs text-muted-foreground uppercase tracking-wide">Status</dt>
           <dd class="mt-1">
-            <span class="badge" data-variant="{{ 'secondary' if item.status in ('Sold', 'Transferred') else 'outline' }}">{{ item.status }}</span>
+            <span class="badge" data-variant="{{ 'secondary' if item.status in ('Sold', 'Transferred', 'In bank account') else 'outline' }}">{{ item.status }}</span>
           </dd>
         </div>
         <div>
@@ -170,3 +179,5 @@
 </div>
 
 {% endblock %}
+
+{% block scripts %}{% include "components/file_upload_script.html" %}{% endblock %}

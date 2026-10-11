@@ -16,6 +16,13 @@
 {{ alert(message="Re-indexing finished: " ~ reindex_stats.succeeded ~ " of " ~ reindex_stats.total ~ " documents embedded, " ~ reindex_stats.failed ~ " failed, " ~ reindex_stats.missing ~ " missing. " ~ reindex_stats.chunks ~ " chunks available.") }}
 {% endif %}
 
+{% if restored %}
+{{ alert(message="Backup restored. Your previous data was kept in instance/" ~ restored ~ "/ in case you need to undo this.") }}
+{% endif %}
+{% if restore_error %}
+{{ alert(message=restore_error, variant="destructive") }}
+{% endif %}
+
 <div class="max-w-2xl">
   <div class="card mb-6">
     <header>
@@ -96,12 +103,12 @@
   <div class="card mt-6">
     <header>
       <h2>Export &amp; Backup</h2>
-      <p>Download a full database backup or export ledger data as CSV for spreadsheets.</p>
+      <p>Download a full backup (database + uploaded documents and photos) or export ledger data as CSV for spreadsheets.</p>
     </header>
     <section class="grid gap-4">
       <a href="{{ url_for('backup_database') }}" class="btn" data-variant="outline">
         <svg data-icon="inline-start" class="lucide lucide-database" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/></svg>
-        Download full backup (.db)
+        Download full backup (.zip)
       </a>
       <div class="grid gap-2">
         <p class="text-xs text-muted-foreground">Export as CSV (opens in Excel, Numbers, or Google Sheets via File &gt; Import):</p>
@@ -110,8 +117,31 @@
           <a href="{{ url_for('export_liabilities_csv') }}" class="btn" data-variant="outline" data-size="sm">Liabilities</a>
           <a href="{{ url_for('export_events_csv') }}" class="btn" data-variant="outline" data-size="sm">Timeline</a>
           <a href="{{ url_for('export_tasks_csv') }}" class="btn" data-variant="outline" data-size="sm">Tasks</a>
+          <a href="{{ url_for('export_money_csv') }}" class="btn" data-variant="outline" data-size="sm">Money</a>
         </div>
       </div>
+    </section>
+  </div>
+
+  <div class="card mt-6">
+    <header>
+      <h2>Restore from backup</h2>
+      <p>Replace the current database and uploaded files with a backup you downloaded above. A bare .db file from an older backup also works (documents and photos are then left as they are).</p>
+    </header>
+    <section>
+      <form method="post" action="{{ url_for('restore_backup') }}" enctype="multipart/form-data" class="grid gap-4"
+            onsubmit="return confirm('This replaces ALL current data with the backup. Your current data is kept in a pre-restore folder. Continue?');">
+        <div class="grid gap-2">
+          <label class="label" for="backup_file">Backup file (.zip or .db)</label>
+          <input class="input" type="file" id="backup_file" name="backup_file" accept=".zip,.db" required>
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="restore_confirm">Type RESTORE to confirm</label>
+          <input class="input" type="text" id="restore_confirm" name="confirm_word" autocomplete="off" required>
+        </div>
+        <button type="submit" class="btn" data-variant="destructive">Restore backup</button>
+      </form>
+      <p class="text-xs text-muted-foreground mt-3">You may be signed out afterwards if your account is not in the backup.</p>
     </section>
   </div>
 </div>

@@ -1,0 +1,302 @@
+/*
+  Landing intro (components/landing_intro.html + js/components/landing-intro.js).
+
+  Plain CSS on the Basecoat theme tokens instead of Tailwind utilities, so the
+  intro can change without a CSS rebuild and follows light/dark automatically.
+
+  The scene is drawn on a fixed 880×500 canvas that JS scales to fit the hero,
+  like a video frame: every beat looks identical at every screen size, which
+  is what makes "beat 3 at 0:06" a reliable thing to point at.
+*/
+
+/* While the intro plays, the real hero content waits underneath. */
+.lpi-on #hero > :not(.lpi) { opacity: 0; }
+.lpi { display: none; }
+.lpi-on .lpi {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  overflow: hidden;
+}
+
+.lpi-canvas {
+  /* Centred by JS (translate + scale) rather than grid, which can't centre
+     a box wider than the hero before it is scaled down. */
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 880px;
+  height: 500px;
+  transform-origin: center center;
+  font-size: 14px;
+  color: var(--foreground);
+  text-align: left; /* the hero section centres text; the app pieces should not */
+}
+/* Everything on the canvas starts hidden; the timeline reveals it. */
+.lpi-canvas > *,
+.lpi-pile > * { visibility: hidden; opacity: 0; }
+
+.lpi-skip {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  background: none;
+  border: 0;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.lpi-skip:hover { color: var(--foreground); }
+
+/* ── Shared pieces ─────────────────────────────────────────────── */
+.lpi-caption {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  margin: 0;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.lpi-closing { font-size: 44px; line-height: 1.15; letter-spacing: -0.03em; }
+.lpi-soft { color: var(--muted-foreground); }
+
+.lpi-window,
+.lpi-paper,
+.lpi-doc {
+  position: absolute;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 12px 32px -12px rgb(0 0 0 / 0.18);
+}
+.lpi-window { border-radius: 14px; overflow: hidden; }
+
+.lpi-win-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+}
+.lpi-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-size: 9px;
+  font-weight: 700;
+}
+.lpi-pill {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+.lpi-pill b { color: var(--foreground); font-variant-numeric: tabular-nums; }
+
+.lpi-line {
+  display: block;
+  height: 5px;
+  margin-top: 6px;
+  border-radius: 3px;
+  background: var(--muted);
+}
+.lpi-line-s { width: 60%; }
+
+/* ── Beat 1: pile of documents ─────────────────────────────────── */
+.lpi-pile { position: absolute; inset: 0; visibility: visible !important; opacity: 1 !important; }
+.lpi-doc {
+  left: 388px;
+  top: 165px;
+  width: 104px;
+  height: 134px;
+  padding: 10px;
+  border-radius: 6px;
+}
+.lpi-doc-tag {
+  display: inline-block;
+  font-size: 8px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--chart-2);
+}
+.lpi-doc-title {
+  display: block;
+  margin: 3px 0 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/* ── Beat 2: library ───────────────────────────────────────────── */
+.lpi-library { left: 170px; top: 78px; width: 540px; }
+.lpi-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.lpi-row:last-child { border-bottom: 0; }
+.lpi-file-ico { display: inline-flex; color: var(--muted-foreground); }
+.lpi-file-ico svg { width: 18px; height: 18px; }
+.lpi-row-name { flex: 1; font-weight: 500; }
+.lpi-row-meta { color: var(--muted-foreground); font-size: 12px; }
+.lpi-row-status { position: relative; width: 70px; height: 16px; }
+.lpi-scan {
+  position: absolute;
+  inset: 5px 0;
+  border-radius: 3px;
+  background: var(--muted);
+  overflow: hidden;
+}
+.lpi-scan-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--chart-2);
+  transform-origin: left center;
+  transform: scaleX(0);
+}
+.lpi-check {
+  position: absolute;
+  right: 0;
+  top: -2px;
+  color: var(--chart-2);
+  font-weight: 700;
+  opacity: 0;
+}
+
+/* ── Beat 3: chat + source ─────────────────────────────────────── */
+.lpi-chat { left: 30px; top: 84px; width: 480px; height: 320px; display: flex; flex-direction: column; }
+.lpi-chat-body { flex: 1; display: flex; flex-direction: column; gap: 14px; padding: 18px; }
+.lpi-q {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 14px 14px 4px 14px;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-weight: 500;
+}
+.lpi-a {
+  max-width: 90%;
+  padding: 12px 14px;
+  border-radius: 14px 14px 14px 4px;
+  background: var(--muted);
+  line-height: 1.45;
+  opacity: 0;
+}
+.lpi-a p { margin: 0 0 10px; }
+.lpi-source {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--chart-2);
+  color: var(--chart-2);
+  background: var(--card);
+}
+.lpi-input {
+  margin: 0 14px 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+
+.lpi-paper {
+  left: 560px;
+  top: 84px;
+  width: 290px;
+  height: 320px;
+  padding: 22px;
+  border-radius: 6px;
+}
+.lpi-paper-title { display: block; font-weight: 700; font-size: 15px; }
+.lpi-paper-sub { display: block; margin: 2px 0 14px; color: var(--muted-foreground); font-size: 11px; }
+.lpi-paper .lpi-line { margin-top: 10px; }
+.lpi-hl {
+  position: relative;
+  display: block;
+  margin: 14px -8px 4px;
+  padding: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.lpi-hl-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--chart-2) 18%, transparent);
+  outline: 1.5px solid var(--chart-2);
+  transform-origin: left center;
+  transform: scaleX(0);
+}
+
+/* ── Beat 4: activity + final report ───────────────────────────── */
+.lpi-feed { left: 30px; top: 100px; width: 450px; }
+.lpi-sale {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-bottom: 1px solid var(--border);
+  opacity: 0;
+}
+.lpi-sale:last-child { border-bottom: 0; }
+.lpi-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.lpi-sale-text { flex: 1; }
+.lpi-amount { font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.lpi-report { left: 540px; top: 84px; width: 310px; height: auto; }
+.lpi-report-row,
+.lpi-report-total {
+  display: flex;
+  justify-content: space-between;
+  padding: 9px 0;
+  border-bottom: 1px dashed var(--border);
+  font-variant-numeric: tabular-nums;
+}
+.lpi-report-row { opacity: 0; }
+.lpi-report-total { border-bottom: 0; border-top: 2px solid var(--foreground); margin-top: 6px; font-weight: 700; font-size: 16px; }
+
+/* ── Draft tools ───────────────────────────────────────────────── */
+.lpi-debug {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 100;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #e11d48;
+  color: #fff;
+  font: 600 13px/1.2 ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}

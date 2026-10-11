@@ -7,8 +7,11 @@
 
   Extra query params (sort, q, etc.) are preserved via extra_params dict.
   e.g.  {{ pagination(page=page, total_pages=total_pages, base_url="/app/customers", extra_params={"q": q, "sort": sort}) }}
+
+  anchor ("#section-id", optional) is appended to every link so a long page
+  stays scrolled to the list being paged instead of jumping to the top.
 #}
-{% macro pagination(page, total_pages, base_url, extra_params={}) %}
+{% macro pagination(page, total_pages, base_url, extra_params={}, anchor="") %}
 {% if total_pages > 1 %}
 {% set qs_base %}{% for k, v in extra_params.items() %}{% if v %}&{{ k }}={{ v }}{% endif %}{% endfor %}{% endset %}
 <nav role="navigation" aria-label="pagination" class="flex w-full justify-center mt-6">
@@ -16,7 +19,7 @@
     {# Previous #}
     <li>
       {% if page > 1 %}
-      <a href="{{ base_url }}?page={{ page - 1 }}{{ qs_base }}" class="btn" data-variant="ghost">
+      <a href="{{ base_url }}?page={{ page - 1 }}{{ qs_base }}{{ anchor }}" class="btn" data-variant="ghost">
       {% else %}
       <span class="btn opacity-50 cursor-not-allowed" data-variant="ghost" aria-disabled="true">
       {% endif %}
@@ -30,13 +33,13 @@
     {% set end   = [total_pages, page + 2] | min %}
 
     {% if start > 1 %}
-      <li><a href="{{ base_url }}?page=1{{ qs_base }}" class="btn" data-variant="ghost" data-size="icon">1</a></li>
+      <li><a href="{{ base_url }}?page=1{{ qs_base }}{{ anchor }}" class="btn" data-variant="ghost" data-size="icon">1</a></li>
       {% if start > 2 %}<li><div class="size-9 flex items-center justify-center text-muted-foreground">…</div></li>{% endif %}
     {% endif %}
 
     {% for p in range(start, end + 1) %}
     <li>
-      <a href="{{ base_url }}?page={{ p }}{{ qs_base }}"
+      <a href="{{ base_url }}?page={{ p }}{{ qs_base }}{{ anchor }}"
          class="btn" data-variant="{{ 'outline' if p == page else 'ghost' }}" data-size="icon"
          {% if p == page %}aria-current="page"{% endif %}>{{ p }}</a>
     </li>
@@ -44,13 +47,13 @@
 
     {% if end < total_pages %}
       {% if end < total_pages - 1 %}<li><div class="size-9 flex items-center justify-center text-muted-foreground">…</div></li>{% endif %}
-      <li><a href="{{ base_url }}?page={{ total_pages }}{{ qs_base }}" class="btn" data-variant="ghost" data-size="icon">{{ total_pages }}</a></li>
+      <li><a href="{{ base_url }}?page={{ total_pages }}{{ qs_base }}{{ anchor }}" class="btn" data-variant="ghost" data-size="icon">{{ total_pages }}</a></li>
     {% endif %}
 
     {# Next #}
     <li>
       {% if page < total_pages %}
-      <a href="{{ base_url }}?page={{ page + 1 }}{{ qs_base }}" class="btn" data-variant="ghost">
+      <a href="{{ base_url }}?page={{ page + 1 }}{{ qs_base }}{{ anchor }}" class="btn" data-variant="ghost">
       {% else %}
       <span class="btn opacity-50 cursor-not-allowed" data-variant="ghost" aria-disabled="true">
       {% endif %}

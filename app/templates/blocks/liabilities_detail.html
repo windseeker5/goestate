@@ -4,6 +4,7 @@
 {% from "components/file_upload.html" import file_upload %}
 {% from "components/empty_state.html" import empty_state %}
 {% from "components/alert.html" import alert %}
+{% from "components/money_categories_help.html" import money_categories_help %}
 
 {% block title %}{{ item.creditor }} – Estate Copilot{% endblock %}
 {% block breadcrumb %}
@@ -19,8 +20,9 @@
   action=('<a href="' ~ url_for("edit_liability", item_id=item.id) ~ '" class="btn" data-variant="outline">Edit</a>') if g.user.role == "admin" else None
 ) }}
 
+{% if saved %}{{ alert(message=saved) }}{% endif %}
 {% if error %}
-{{ alert(title="Photo not saved", message=error, variant="destructive") }}
+{{ alert(title="Not saved", message=error, variant="destructive") }}
 {% endif %}
 
 <div class="grid gap-4 md:grid-cols-3">
@@ -41,6 +43,10 @@
           <dd class="mt-1">
             <span class="badge" data-variant="{{ 'secondary' if item.status in ('Paid', 'Cancelled') else 'outline' }}">{{ item.status }}</span>
           </dd>
+        </div>
+        <div>
+          <dt class="text-xs text-muted-foreground uppercase tracking-wide">Category</dt>
+          <dd class="mt-1 font-medium {{ '' if category_label else 'text-muted-foreground' }}">{{ category_label or "Not set yet" }}</dd>
         </div>
       </dl>
       {% if item.description %}
@@ -68,6 +74,71 @@
     </section>
   </div>
   {% endif %}
+
+  <div id="payments" class="card md:col-span-3">
+    <header>
+      <h2>Payments</h2>
+      <p>Who paid this bill and with which money. Paying with cash you hold for the estate lowers what you still have to deposit.</p>
+    </header>
+    <section class="grid gap-6">
+      {% if payments %}
+      <ul class="grid gap-2 text-sm">
+        {% for p in payments %}
+        <li class="flex flex-wrap items-center justify-between gap-3">
+          <span><span class="tabular-nums font-medium">{{ (-p.amount_cents)|cents }}</span>
+            <span class="text-muted-foreground">on {{ p.entry_date }} · from {{ p.account_label }}</span>
+            {% if p.reconciliation_id %}<span class="badge ms-1" data-variant="secondary">Checked with bank</span>{% endif %}
+          </span>
+          {% if g.user.role == "admin" and not p.reconciliation_id %}
+          <form method="post" action="{{ url_for('money_delete_entry', entry_id=p.id) }}" onsubmit="return confirm('Remove this payment?');">
+            <input type="hidden" name="next" value="{{ url_for('detail_liability', item_id=item.id) }}">
+            <button type="submit" class="btn" data-variant="ghost" data-size="sm">Remove</button>
+          </form>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+      {% elif item.status == "Paid" %}
+      <p class="text-sm text-muted-foreground">Marked Paid before payments were tracked — no details recorded.</p>
+      {% else %}
+      <p class="text-sm text-muted-foreground">No payment recorded yet.</p>
+      {% endif %}
+
+      {% if g.user.role == "admin" and item.status not in ("Paid", "Cancelled") %}
+      <form method="post" action="{{ url_for('pay_liability', item_id=item.id) }}" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
+        <div class="grid gap-2">
+          <label class="label" for="pay-amount">Amount</label>
+          <input class="input" type="text" inputmode="decimal" id="pay-amount" name="amount" value="{{ '%.2f'|format(item.amount|float) if item.amount else '' }}" required autocomplete="off">
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="pay-date">Date paid</label>
+          <input class="input" type="date" id="pay-date" name="entry_date" value="{{ today_iso() }}" required>
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="pay-from">Paid with</label>
+          <select class="select w-full" id="pay-from" name="account_id">
+            {% for value, label in sources %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="grid gap-2">
+          <div class="flex items-center gap-1">
+            <label class="label" for="pay-category">Category</label>
+            {{ money_categories_help(id="pay-categories-help") }}
+          </div>
+          <select class="select w-full" id="pay-category" name="category" required>
+            <option value="" {% if not item.category %}selected{% endif %} disabled>Choose…</option>
+            {% for key, label in categories %}
+            <option value="{{ key }}" {% if item.category == key %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div><button type="submit" class="btn w-full">Record payment</button></div>
+      </form>
+      {% endif %}
+    </section>
+  </div>
 
   <div id="attachments" class="card md:col-span-3">
     <header><h2>Attachments</h2><p>Photo and documents for this liability — documents are parsed and made searchable in chat automatically.</p></header>
@@ -168,3 +239,5 @@
 </div>
 
 {% endblock %}
+
+{% block scripts %}{% include "components/file_upload_script.html" %}{% endblock %}

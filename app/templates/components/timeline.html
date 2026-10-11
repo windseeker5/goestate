@@ -41,13 +41,15 @@
     {% endif %}
     {# Content #}
     <div class="min-w-0 flex-1 -mt-0.5">
-      <div class="flex flex-wrap items-center gap-2">
-        <p class="text-sm font-medium break-words">{{ item.title }}</p>
+      <p class="text-sm font-medium break-words">{{ item.title }}</p>
+      {# Badge sits on the date line, not beside the title: next to a long
+         title it wrapped onto its own ragged line on phones. #}
+      <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <span class="tabular-nums">{{ item.date }}</span>
         {% if item.badge %}
         <span class="badge" {% if item.badge_variant %}data-variant="{{ item.badge_variant }}"{% endif %}>{{ item.badge }}</span>
         {% endif %}
       </div>
-      <p class="text-xs text-muted-foreground mt-0.5">{{ item.date }}</p>
       {% if item.description %}
       <p class="text-sm text-muted-foreground mt-1.5 break-words">{{ item.description }}</p>
       {% endif %}
