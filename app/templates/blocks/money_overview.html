@@ -1,0 +1,314 @@
+{% extends "layouts/app.html" %}
+{% from "components/page_header.html" import page_header %}
+{% from "components/alert.html" import alert %}
+{% from "components/data_table.html" import data_table, table_cell %}
+{% from "components/deposit_dialog.html" import deposit_dialog %}
+{% from "components/money_categories_help.html" import money_categories_help %}
+{% from "components/pagination.html" import pagination %}
+{% from "components/statement_picker.html" import statement_picker %}
+
+{% block title %}Money – Estate Copilot{% endblock %}
+{% block breadcrumb %}Money{% endblock %}
+
+{% set is_admin = g.user.role == "admin" %}
+
+{% block content %}
+{% set header_actions %}
+{% if is_admin %}
+{# Primary action on its own row on phones, the two secondary ones share the
+   next; at large text sizes labels wrap and buttons drop to their own rows
+   instead of overlapping (h-auto + whitespace-normal; min-h-11 = 44px). #}
+<div class="flex w-full flex-wrap gap-2 sm:w-auto">
+  {{ deposit_dialog(users=users, default_user_id=g.user.id, next_url=url_for('money_overview'), trigger_class="h-auto min-h-11 w-full whitespace-normal py-2 text-center sm:w-auto") }}
+  <a href="{{ url_for('money_new_entry', account=('user:' ~ person) if person else 'bank') }}" class="btn h-auto min-h-11 flex-1 whitespace-normal py-2 text-center sm:flex-none" data-variant="outline">Add entry</a>
+  {% if bank.opening_balance_cents is not none %}
+  <a href="{{ url_for('money_check') }}" class="btn h-auto min-h-11 flex-1 whitespace-normal py-2 text-center sm:flex-none" data-variant="outline">Check with the bank</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endset %}
+{{ page_header(title="Money", description="The estate bank account and the cash each person holds for the estate.", action=header_actions, action_class="w-full sm:w-auto") }}
+
+{% if saved %}{{ alert(message=saved) }}{% endif %}
+{% if error %}{{ alert(message=error, variant="destructive") }}{% endif %}
+
+<div class="grid gap-4 md:grid-cols-2 mb-6">
+  {# ── Estate bank account ─────────────────────────────────────────── #}
+  <div class="card">
+    <header>
+      <h2>Estate bank account</h2>
+      <p>What should be in the succession's bank account, according to the transactions below.</p>
+    </header>
+    <section>
+      {% if bank.opening_balance_cents is none %}
+        {% if is_admin %}
+        <p class="text-sm mb-4">To start, type the balance shown on your latest bank printout or statement, and its date. Everything you record after that date will be added to it.</p>
+        <form method="post" action="{{ url_for('money_setup') }}" enctype="multipart/form-data" class="grid gap-4">
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div class="grid gap-2">
+              <label class="label" for="opening_balance">Balance on the printout</label>
+              <input class="input" type="text" inputmode="decimal" id="opening_balance" name="opening_balance" placeholder="12345.67" required autocomplete="off">
+            </div>
+            <div class="grid gap-2">
+              <label class="label" for="opening_date">Date of the printout</label>
+              <input class="input" type="date" id="opening_date" name="opening_date" value="{{ today }}" required>
+            </div>
+          </div>
+          {{ statement_picker(documents=unlinked_documents, id="opening-statement") }}
+          <div><button type="submit" class="btn">Save starting balance</button></div>
+        </form>
+        {% else %}
+        <p class="text-sm text-muted-foreground">Not set up yet.</p>
+        {% endif %}
+      {% else %}
+        <p class="min-w-0 break-words text-3xl font-semibold tabular-nums">{{ bank_balance|cents }}</p>
+        <dl class="mt-4 grid gap-2 text-sm">
+          <div class="flex min-w-0 justify-between gap-4">
+            <dt class="min-w-0 text-muted-foreground">Starting balance ({{ bank.opening_date }})</dt>
+            <dd class="shrink-0 tabular-nums">{{ bank.opening_balance_cents|cents }}</dd>
+          </div>
+          <div class="flex min-w-0 justify-between gap-4">
+            <dt class="shrink-0 text-muted-foreground">Statement</dt>
+            <dd class="text-end min-w-0" id="opening-statement-link">
+              {% if opening_document %}<a class="inline-block max-w-full truncate py-1 align-bottom underline" href="{{ url_for('view_document', document_id=opening_document.id) }}" target="_blank" rel="noopener">{{ opening_document.filename }}</a>
+              {% else %}<span class="text-muted-foreground">None attached</span>{% endif %}
+            </dd>
+          </div>
+          <div class="flex min-w-0 justify-between gap-4">
+            <dt class="min-w-0 text-muted-foreground">Last checked with the bank</dt>
+            <dd class="shrink-0">{{ last_check.statement_date if last_check else "Not yet" }}</dd>
+          </div>
+          <div class="flex min-w-0 justify-between gap-4">
+            <dt class="min-w-0 text-muted-foreground">Lines not checked yet</dt>
+            <dd class="shrink-0 tabular-nums">{{ unchecked_count }}</dd>
+          </div>
+        </dl>
+        {% if is_admin and not opening_document %}
+        <form method="post" action="{{ url_for('money_opening_statement') }}" enctype="multipart/form-data" class="mt-4 border-t grid gap-3" style="padding-top: 1rem" id="opening-statement-form">
+          {{ statement_picker(documents=unlinked_documents, id="opening-statement") }}
+          <div><button type="submit" class="btn" data-variant="outline" data-size="sm">Attach statement</button></div>
+        </form>
+        {% endif %}
+      {% endif %}
+    </section>
+  </div>
+
+  {# ── Money held by each person ───────────────────────────────────── #}
+  <div class="card">
+    <header>
+      <h2>Cash not deposited yet</h2>
+      <p>Sale money each person collected for the estate and hasn't put in the bank yet (minus any estate bill they paid with it).</p>
+    </header>
+    <section>
+      {% if held %}
+      <ul class="grid">
+        {% for h in held %}
+        <li class="flex flex-wrap items-baseline justify-between gap-x-4">
+          <a href="{{ url_for('money_overview', person=h.user_id) }}" class="inline-block min-w-0 break-words py-3 hover:underline {{ 'font-semibold' if person == h.user_id else '' }}">{{ h.name }}</a>
+          <span class="shrink-0 py-3 tabular-nums font-medium {{ 'text-muted-foreground' if h.balance_cents == 0 else '' }}">{{ h.balance_cents|cents }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% set total_held = held | sum(attribute="balance_cents") %}
+      <div class="mt-4 pt-3 border-t flex flex-wrap justify-between gap-x-4 text-sm">
+        <span class="min-w-0 text-muted-foreground">Total still to deposit</span>
+        <span class="shrink-0 tabular-nums font-medium">{{ total_held|cents }}</span>
+      </div>
+      {% else %}
+      <p class="text-sm text-muted-foreground">Nobody holds money for the estate yet. It appears here when an asset is marked Sold.</p>
+      {% endif %}
+    </section>
+  </div>
+</div>
+
+{% if needs_attention %}
+<div class="alert mb-6" role="status">
+  <svg class="lucide lucide-info" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+  <h2>Sold items not counted</h2>
+  <section>
+    <p>These are marked Sold but have no sale price or no seller, so they don't count in anyone's balance:
+      {% for a in needs_attention %}<a class="underline" href="{{ url_for('detail_asset', item_id=a.id) }}">{{ a.name }}</a>{{ ", " if not loop.last else "." }}{% endfor %}
+      Given away? Set its Sale Price to 0.</p>
+  </section>
+</div>
+{% endif %}
+
+{# ── By category ────────────────────────────────────────────────────── #}
+{% if totals["in"] or totals["out"] or totals.uncategorized.count %}
+<div class="card mb-6" id="by-category">
+  <header>
+    <h2>Money in and out</h2>
+    <p>Totals by category for the final account to the heirs (the notary's <i>recettes et débours</i>). Deposits aren't counted: they only move money into the bank.</p>
+  </header>
+  <section class="grid gap-6 md:grid-cols-2">
+    {% for direction, heading in [("in", "Money in"), ("out", "Money out")] %}
+    <div>
+      <h3 class="text-sm font-medium mb-2">{{ heading }}</h3>
+      {% if totals[direction] %}
+      <ul class="grid gap-2 text-sm">
+        {% for t in totals[direction] %}
+        <li class="flex flex-wrap justify-between gap-x-4 gap-y-0.5">
+          <span class="min-w-0 break-words">{{ t.label }} <span class="text-muted-foreground">· {{ t.count }}</span></span>
+          <span class="shrink-0 tabular-nums">{{ t.cents|cents }}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      <div class="mt-3 pt-2 border-t flex flex-wrap justify-between gap-x-4 text-sm font-medium">
+        <span class="min-w-0">Total {{ heading|lower }}</span>
+        <span class="shrink-0 tabular-nums" data-total="{{ direction }}">{{ totals[direction] | sum(attribute="cents") | cents }}</span>
+      </div>
+      {% else %}
+      <p class="text-sm text-muted-foreground">Nothing yet.</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% if totals.uncategorized.count %}
+  <section class="pt-0">
+    <p class="text-sm text-destructive">{{ totals.uncategorized.count }} payment{{ "s" if totals.uncategorized.count != 1 }} ({{ totals.uncategorized.cents|cents }}) without a category: open the bill in Liabilities and set its Category.</p>
+  </section>
+  {% endif %}
+  <footer>{{ money_categories_help(id="overview-categories-help", label="What goes in each category?", trigger_class="h-auto min-h-11 min-w-0 max-w-full shrink whitespace-normal py-2 text-start") }}</footer>
+</div>
+{% endif %}
+
+{# ── Transactions ───────────────────────────────────────────────────── #}
+{# One account at a time, picked from a dropdown rather than tabs: tabs stop
+   working past three or four people, a select holds any number. A plain GET
+   form with an explicit Show button — a dropdown that reloads the page on
+   every change is a trap for keyboard and screen-reader users (WCAG 3.2.2).
+   The choice lives in the URL (?person=&month=&page=). #}
+<div class="card mb-6" id="transactions">
+  <header>
+    <h2 id="transactions-heading">Transactions</h2>
+    <p>{% if account.kind == 'bank' %}Every line in the estate bank account, newest first. Lines dated on or before the starting balance date are already included in it.{% else %}What {{ account_label|replace("Cash held by ", "") }} collected for the estate and deposited, newest first.{% endif %}</p>
+  </header>
+  {# minmax(0,1fr): the single column may shrink below its content, so a wide
+     row can never push the card's content past its edge (the card clips). #}
+  <section class="grid grid-cols-[minmax(0,1fr)] gap-4">
+    <form method="get" action="{{ url_for('money_overview') }}#transactions" class="grid gap-3 sm:grid-cols-[minmax(0,18rem)_minmax(0,10rem)_auto] sm:items-end">
+      <div class="grid gap-1.5">
+        <label class="label" for="person">Account</label>
+        <select class="select w-full" id="person" name="person">
+          <option value="" {% if not person %}selected{% endif %}>Estate bank account</option>
+          {% for h in held %}
+          <option value="{{ h.user_id }}" {% if person == h.user_id %}selected{% endif %}>Cash: {{ h.name }} ({{ h.balance_cents|cents }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if months %}
+      <div class="grid gap-1.5">
+        <label class="label" for="month">Month</label>
+        <select class="select w-full" id="month" name="month">
+          <option value="">All months</option>
+          {% for m in months %}<option value="{{ m }}" {% if m == month %}selected{% endif %}>{{ m }}</option>{% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <button type="submit" class="btn min-h-11 w-full sm:w-auto sm:justify-self-start" data-variant="outline">Show</button>
+    </form>
+
+    {% if account.kind == 'bank' and bank.opening_date %}
+      {% set empty_text = "Nothing since your " ~ bank.opening_date ~ " starting balance yet. Deposits, bills paid and bank fees will show up here." %}
+    {% else %}
+      {% set empty_text = "Nothing yet." %}
+    {% endif %}
+
+    {# Status cell: Checked / Already deposited badge, or a Delete button. #}
+    {% macro entry_status(row) %}
+      {% if row.reconciliation_id %}
+        <span class="badge" data-variant="secondary" title="Checked with the bank statement of {{ row.reconciled_on }}">Checked</span>
+      {% elif row.kind == 'deposit' and not row.transfer_id %}
+        {# Deposited before the money ledger existed: already inside the
+           starting balance, so there is nothing to fix here. #}
+        <span class="badge" data-variant="outline" title="This money went to the bank before the starting balance — it is already in it.">Already deposited</span>
+      {% elif is_admin and row.kind != 'sale' %}
+        <form method="post" action="{{ url_for('money_delete_entry', entry_id=row.id) }}" onsubmit="return confirm('Delete this entry?{{ ' Both sides of the deposit will be removed.' if row.transfer_id else '' }}');">
+          <input type="hidden" name="next" value="{{ request.full_path }}">
+          <button type="submit" class="btn min-h-11" data-variant="ghost" data-size="sm">Delete</button>
+        </form>
+      {% endif %}
+    {% endmacro %}
+
+    {# The description links to its asset or bill. -my-3 py-3 makes the link a
+       44px-tall hit area without changing how the row looks. #}
+    {% macro entry_description(row) %}
+      {% if row.liability_id %}<a class="-my-3 inline-block py-3 hover:underline" href="{{ url_for('detail_liability', item_id=row.liability_id) }}">{{ row.description }}</a>
+      {% elif row.asset_id %}<a class="-my-3 inline-block py-3 hover:underline" href="{{ url_for('detail_asset', item_id=row.asset_id) }}">{{ row.description }}</a>
+      {% else %}{{ row.description or "—" }}{% endif %}
+    {% endmacro %}
+
+    {% if entries %}
+    {# ONE structure for every width. A container query (the card's own width,
+       not the viewport — the sidebar takes 256px of it) picks the layout:
+         narrow  what/when on the left, amount/balance on the right (bank-app list)
+         >=56rem six aligned columns with a header row
+       rem-based, so enlarging text also switches to the stacked layout sooner.
+       ARIA table roles keep it a real table for screen readers in both layouts. #}
+    {% set wide_cols = "@4xl:grid-cols-[6.5rem_minmax(0,1fr)_minmax(7rem,11rem)_7rem_7rem_minmax(7rem,9rem)]" %}
+    <div class="@container min-w-0">
+      <div role="table" aria-labelledby="transactions-heading" class="border-y @4xl:rounded-lg @4xl:border">
+        <div role="row" class="hidden gap-x-3 border-b px-3 py-2 text-xs font-medium text-muted-foreground @4xl:grid {{ wide_cols }}">
+          <div role="columnheader">Date</div>
+          <div role="columnheader">Description</div>
+          <div role="columnheader">Category</div>
+          <div role="columnheader" class="text-end">Amount</div>
+          <div role="columnheader" class="text-end">Balance</div>
+          <div role="columnheader"><span class="sr-only">Status</span></div>
+        </div>
+        <div role="rowgroup" class="divide-y">
+          {% for row in entries %}
+          <div role="row" class="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 py-3 @4xl:items-center @4xl:px-3 {{ wide_cols }}">
+            <div role="cell" class="col-start-1 row-start-1 min-w-0 break-words text-sm font-medium @4xl:col-start-2">{{ entry_description(row) }}</div>
+            <div class="col-start-1 row-start-2 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground @4xl:contents">
+              <div role="cell" class="whitespace-nowrap tabular-nums @4xl:col-start-1 @4xl:row-start-1 @4xl:text-sm">{{ row.entry_date }}</div>
+              <span class="@4xl:hidden" aria-hidden="true">·</span>
+              <div role="cell" class="min-w-0 @4xl:col-start-3 @4xl:row-start-1"><span class="badge" data-variant="outline">{{ row.category_label }}</span></div>
+            </div>
+            <div role="cell" class="col-start-2 row-start-1 whitespace-nowrap text-end text-sm font-semibold tabular-nums @4xl:col-start-4 {{ 'text-muted-foreground' if row.in_opening else '' }}">{{ row.amount_cents|cents(signed=true) }}</div>
+            <div role="cell" class="col-start-2 row-start-2 text-end text-xs tabular-nums text-muted-foreground @4xl:col-start-5 @4xl:row-start-1 @4xl:whitespace-nowrap @4xl:text-sm">{{ row.running_cents|cents if row.running_cents is not none else "In starting balance" }}</div>
+            <div role="cell" class="col-span-2 col-start-1 row-start-3 justify-self-start empty:hidden @4xl:col-span-1 @4xl:col-start-6 @4xl:row-start-1 @4xl:justify-self-end">{{ entry_status(row)|trim }}</div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <p class="border-y py-8 text-center text-sm text-muted-foreground">{{ empty_text }}</p>
+    {% endif %}
+
+    {% if total > 0 %}
+    <p class="text-sm text-muted-foreground" aria-live="polite">Showing {{ first_row }}–{{ last_row }} of {{ total }}{% if month %} in {{ month }}{% endif %}.</p>
+    {% endif %}
+    {{ pagination(page=page, total_pages=total_pages, base_url=url_for('money_overview'), extra_params={"person": person, "month": month}, anchor="#transactions") }}
+  </section>
+</div>
+
+{# ── Bank check history ─────────────────────────────────────────────── #}
+{% if checks %}
+<div class="card" id="bank-checks">
+  <header>
+    <h2>Bank checks</h2>
+    <p>Each time the entries were compared with a bank statement and matched to the cent.</p>
+  </header>
+  <section>
+    <ul class="grid gap-3">
+      {% for c in checks %}
+      <li class="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <span>
+          <span class="font-medium">{{ c.statement_date }}</span>
+          <span class="text-muted-foreground">· balance {{ c.statement_balance_cents|cents }} · {{ c.entry_count }} line{{ "s" if c.entry_count != 1 }} · by {{ c.completed_by_name or (c.completed_by_email or "").split("@")[0] }}</span>
+          {% if c.document_id %} · <a class="underline" href="{{ url_for('view_document', document_id=c.document_id) }}" target="_blank" rel="noopener">statement</a>{% else %}<span class="text-muted-foreground"> · no statement</span>{% endif %}
+        </span>
+        {% if loop.first and is_admin %}
+        <form method="post" action="{{ url_for('money_check_undo') }}" onsubmit="return confirm('Undo this bank check? Its lines become unchecked again.');">
+          <button type="submit" class="btn" data-variant="ghost" data-size="sm">Undo</button>
+        </form>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+</div>
+{% endif %}
+{% endblock %}

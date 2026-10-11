@@ -40,6 +40,8 @@
     select_name {string}        Checkbox `name` attribute when selectable.
     select_form {string}        `form` attribute value the checkboxes submit
                                 into when selectable.
+    empty       {string}        Message shown when rows is empty. Default "No results.";
+                                pass something that says what will appear there.
 #}
 {% macro table_cell(label, primary=false, secondary=false, summary=false, summary_title=None, action=false, hide_label=false, numeric=false, class_="") %}
 <td
@@ -55,7 +57,7 @@
 </td>
 {% endmacro %}
 
-{% macro data_table(columns, rows, sort=None, order="asc", base_url="", caption=None, scrollable=true, responsive=false, class_="", extra_params={}, selectable=false, select_name="ids", select_form=None) %}
+{% macro data_table(columns, rows, sort=None, order="asc", base_url="", caption=None, scrollable=true, responsive=false, class_="", extra_params={}, selectable=false, select_name="ids", select_form=None, empty="No results.") %}
 {#
   Responsive tables use labeled records at narrow widths. Their wrapper stays
   unclipped so inline Basecoat action menus remain usable.
@@ -66,13 +68,13 @@
     <thead>
       <tr>
         {% if selectable %}
-        <th class="w-8" data-select-col>
+        <th scope="col" class="w-8" data-select-col>
           <input type="checkbox" data-select-all aria-label="Select all rows">
         </th>
         {% endif %}
         {% for col in columns %}
         {% set align = col.get("align", "start") %}
-        <th class="{{ 'text-end' if align == 'end' else '' }} {{ col.get('class_', '') }}">
+        <th scope="col" class="{{ 'text-end' if align == 'end' else '' }} {{ col.get('class_', '') }}">
           {% if col.get("sortable") %}
             {% set next_order = "desc" if (sort == col.key and order == "asc") else "asc" %}
             {% set qs_base %}{% for key, value in extra_params.items() %}{% if value %}&{{ key | urlencode }}={{ value | urlencode }}{% endif %}{% endfor %}{% endset %}
@@ -105,7 +107,7 @@
       </tr>
       {% else %}
       <tr>
-        <td colspan="{{ columns | length + (1 if selectable else 0) }}" class="text-center text-muted-foreground py-8">No results.</td>
+        <td colspan="{{ columns | length + (1 if selectable else 0) }}" class="text-center text-muted-foreground py-8">{{ empty }}</td>
       </tr>
       {% endfor %}
     </tbody>

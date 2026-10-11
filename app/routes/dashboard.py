@@ -2,6 +2,7 @@ from datetime import date
 
 from flask import g, redirect, render_template, request, url_for
 
+from app import money
 from app.auth import admin_required
 from app.db import get_db
 from app.document_storage import reindex_all_documents
@@ -12,24 +13,19 @@ def register(app):
     def dashboard():
         db = get_db()
         asset_count = db.execute("SELECT COUNT(*) FROM assets").fetchone()[0]
-        asset_total = db.execute(
-            "SELECT COALESCE(SUM(COALESCE(sale_price, estimated_value)), 0) FROM assets"
-        ).fetchone()[0]
         liability_count = db.execute(
-            "SELECT COUNT(*) FROM liabilities WHERE status != 'Paid'"
+            "SELECT COUNT(*) FROM liabilities WHERE status NOT IN ('Paid', 'Cancelled')"
         ).fetchone()[0]
-        liability_total = db.execute(
-            "SELECT COALESCE(SUM(amount), 0) FROM liabilities WHERE status != 'Paid'"
-        ).fetchone()[0]
+        net = money.net_estate(db)
         event_count = db.execute("SELECT COUNT(*) FROM events").fetchone()[0]
         document_count = db.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
 
-        # Money the current user personally holds from sales they haven't
-        # yet wired to the succession's real bank account.
-        amount_to_transfer = db.execute(
-            "SELECT COALESCE(SUM(sale_price), 0) FROM assets WHERE sold_by = ? AND status = 'Sold'",
-            (g.user["id"],),
-        ).fetchone()[0]
+        # Cash the current user holds for the estate (sales collected minus
+        # deposits and bills paid with it) — see app/money.py.
+        held_cents = money.held_balance(db, g.user["id"])
+        bank_cents = money.bank_balance(db)
+        db.commit()  # bank_balance() creates the bank account row on first use
+        users = db.execute("SELECT id, name, email FROM users ORDER BY name").fetchall()
 
         open_task_count = db.execute(
             "SELECT COUNT(*) FROM tasks WHERE status NOT IN ('Done', 'Cancelled')"
@@ -53,7 +49,7 @@ def register(app):
         # Falls back to created_at DESC for entries without a date so new
         # backdated entries don't silently disappear from the top.
         recent_events = db.execute(
-            "SELECT * FROM events ORDER BY COALESCE(event_date, created_at) DESC LIMIT 10"
+            "SELECT * FROM events ORDER BY COALESCE(event_date, created_at) DESC LIMIT 6"
         ).fetchall()
 
         display_name = ""
@@ -63,15 +59,13 @@ def register(app):
         return render_template(
             "blocks/dashboard.html",
             asset_count=asset_count,
-            # Raw floats — the template applies the |money / |money_compact
-            # filters, so display rules live in one place (app/formatting.py)
-            # rather than being split between here and the list templates.
-            asset_total=asset_total,
             liability_count=liability_count,
-            liability_total=liability_total,
             event_count=event_count,
             document_count=document_count,
-            amount_to_transfer=amount_to_transfer,
+            held_cents=held_cents,
+            bank_cents=bank_cents,
+            net=net,
+            users=users,
             recent_events=recent_events,
             display_name=display_name,
             open_task_count=open_task_count,
@@ -107,6 +101,8 @@ def register(app):
 
         saved = request.args.get("saved") == "1"
         reindexed = request.args.get("reindexed") == "1"
+        restored = request.args.get("restored")
+        restore_error = request.args.get("restore_error")
         reindex_stats = {
             key: request.args.get(key, type=int) or 0
             for key in ("total", "succeeded", "failed", "missing", "chunks")
@@ -124,6 +120,8 @@ def register(app):
             saved=saved,
             reindexed=reindexed,
             reindex_stats=reindex_stats,
+            restored=restored,
+            restore_error=restore_error,
         )
 
     @app.route("/app/settings/reindex", methods=["POST"])

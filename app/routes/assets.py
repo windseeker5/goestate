@@ -1,12 +1,36 @@
-from flask import abort, redirect, render_template, request, url_for
+from flask import abort, g, redirect, render_template, request, url_for
 
+from app import money
 from app.auth import admin_required
 from app.db import get_db
 from app.document_storage import attach_documents
 from app.photo_storage import PhotoValidationError, delete_photo, save_photo, send_photo
+from app.push import notify_all
 
 PAGE_SIZE = 10
-STATUSES = ["Active", "Pending", "Sold", "Transferred"]
+# "Transferred" was retired: whether a sale's cash reached the bank is now
+# tracked as deposits on the Money page (app/money.py), not per asset.
+# money.IN_BANK is for money the bank put straight into the estate account.
+STATUSES = ["Active", "Pending", "Sold", money.IN_BANK]
+
+
+def _status_choices(current=None):
+    """Statuses offered on the asset form.
+
+    "In bank account" is never picked by hand: changing the word does not put
+    the money in the bank. It is set by Money -> Add entry / "Money received".
+    An item that already has it keeps it, so editing a CELI/FER-type item
+    does not silently change its status.
+    """
+    return [s for s in STATUSES if s != money.IN_BANK or s == current]
+
+
+def _posted_status(current=None):
+    """Status from the form, refusing a hand-made switch to "In bank account"."""
+    posted = request.form.get("status", "Active")
+    if posted == money.IN_BANK and current != money.IN_BANK:
+        return current or "Active"
+    return posted
 
 
 def _users(db):
@@ -82,28 +106,31 @@ def register(app):
                 if photo and photo.filename:
                     photo_path, photo_mime_type = save_photo(photo, "assets")
                 sold_by = request.form.get("sold_by") or None
+                name = request.form.get("name", "").strip()
                 cur = db.execute(
                     "INSERT INTO assets "
                     "(name, category, estimated_value, sale_price, status, sold_by, notes, photo_path, photo_mime_type) "
                     "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
-                        request.form.get("name", "").strip(),
+                        name,
                         request.form.get("category", "").strip(),
                         request.form.get("estimated_value") or 0,
                         request.form.get("sale_price") or None,
-                        request.form.get("status", "Active"),
+                        _posted_status(),
                         sold_by,
                         request.form.get("notes", "").strip(),
                         photo_path,
                         photo_mime_type,
                     ),
                 )
+                money.sync_sale_entry(db, cur.lastrowid, g.user["id"])
                 db.commit()
+                notify_all(db, "New asset added", name, url_for("detail_asset", item_id=cur.lastrowid))
             except PhotoValidationError as exc:
                 return render_template(
                     "blocks/assets_form.html",
                     item=None,
-                    statuses=STATUSES,
+                    statuses=_status_choices(),
                     users=_users(db),
                     form_data=request.form,
                     error=str(exc),
@@ -114,7 +141,7 @@ def register(app):
                 raise
             return redirect(url_for("detail_asset", item_id=cur.lastrowid))
         return render_template(
-            "blocks/assets_form.html", item=None, statuses=STATUSES, users=_users(get_db()), form_data=None
+            "blocks/assets_form.html", item=None, statuses=_status_choices(), users=_users(get_db()), form_data=None
         )
 
     @app.route("/app/assets/<int:item_id>")
@@ -217,16 +244,17 @@ def register(app):
                     request.form.get("category", "").strip(),
                     request.form.get("estimated_value") or 0,
                     request.form.get("sale_price") or None,
-                    request.form.get("status", "Active"),
+                    _posted_status(item["status"]),
                     request.form.get("sold_by") or None,
                     request.form.get("notes", "").strip(),
                     item_id,
                 ),
             )
+            money.sync_sale_entry(db, item_id, g.user["id"])
             db.commit()
             return redirect(url_for("detail_asset", item_id=item_id))
         return render_template(
-            "blocks/assets_form.html", item=item, statuses=STATUSES, users=_users(db), form_data=None
+            "blocks/assets_form.html", item=item, statuses=_status_choices(item["status"]), users=_users(db), form_data=None
         )
 
     @app.route("/app/assets/<int:item_id>/delete", methods=["POST"])
@@ -237,6 +265,7 @@ def register(app):
         if item is None:
             abort(404)
         db.execute("DELETE FROM assets WHERE id = ?", (item_id,))
+        money.sync_sale_entry(db, item_id)  # asset gone -> its sale entry goes too
         db.commit()
         delete_photo(item["photo_path"])
         return redirect(url_for("list_assets"))
@@ -245,21 +274,21 @@ def register(app):
     @admin_required
     def bulk_update_asset_status():
         target_status = request.form.get("status", "")
-        if target_status not in STATUSES:
+        if target_status not in STATUSES or target_status == money.IN_BANK:
             abort(400)
         ids = [int(i) for i in request.form.getlist("asset_ids") if i.isdigit()]
         if ids:
             db = get_db()
-            # sold_by is intentionally left untouched here: the only bulk
-            # action exposed in the UI is Sold -> Transferred, where
-            # attribution should persist from the original sale. A future
-            # bulk transition INTO "Sold" would need the same becoming-sold
-            # logic as edit_asset().
+            # No bulk action is exposed in the UI since "Transferred" was
+            # retired; kept for scripted use. Each asset's sale entry is
+            # re-synced so the money ledger follows the new status.
             placeholders = ",".join("?" * len(ids))
             db.execute(
                 f"UPDATE assets SET status=?, updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') "
                 f"WHERE id IN ({placeholders})",
                 (target_status, *ids),
             )
+            for asset_id in ids:
+                money.sync_sale_entry(db, asset_id, g.user["id"])
             db.commit()
         return redirect(request.referrer or url_for("list_assets"))

@@ -1,9 +1,10 @@
 {% extends "layouts/app.html" %}
 {% from "components/page_header.html" import page_header %}
-{% from "components/stat_card.html"   import stat_card %}
 {% from "components/empty_state.html" import empty_state %}
 {% from "components/timeline.html"    import timeline %}
 {% from "components/action_menu.html" import action_menu %}
+{% from "components/deposit_dialog.html" import deposit_dialog %}
+{% from "components/alert.html" import alert %}
 
 {% block title %}Dashboard – Estate Copilot{% endblock %}
 {% block breadcrumb %}{% endblock %}
@@ -45,53 +46,86 @@
   ) | string if g.user and g.user.role == "admin" else None
 ) }}
 
-{% if amount_to_transfer and amount_to_transfer > 0 %}
-<p class="text-sm text-muted-foreground mb-4">
-  You have <span class="font-medium text-foreground">{{ amount_to_transfer|money }}</span> to transfer to the succession.
-</p>
-{% endif %}
+{% if request.args.saved %}{{ alert(message=request.args.saved) }}{% endif %}
+{% if request.args.error %}{{ alert(message=request.args.error, variant="destructive") }}{% endif %}
 
-{#
-  Six-column base grid so the five cards can split evenly two-across on phones
-  (span 3) with Tasks taking the full width (span 6) on the last row. A flat
-  grid-cols-2 left Tasks orphaned beside an empty cell.
+{# Estimated net estate: what the heirs would share today. Each dollar is
+   counted once — see money.net_estate(). "Estimated" on purpose: unsold items
+   use their estimated value and the final taxes aren't known yet. Built on the
+   shared Basecoat .card like every other card, so it follows card changes. #}
+{% set net_rows = [
+  ("Items still to sell", net.items_cents, url_for("list_assets"), None),
+  ("Estate bank account", net.bank_cents, url_for("money_overview"), "Starting balance not set yet" if net.bank_cents is none else None),
+  ("Cash not deposited yet", net.held_cents, url_for("money_overview"), None),
+  ("Bills still to pay", -net.bills_cents, url_for("list_liabilities"), None),
+] %}
+<section class="card mb-4" aria-labelledby="net-estate-heading">
+  <header>
+    <h2 id="net-estate-heading">Estimated net estate</h2>
+    <p>What the heirs would share today. An estimate until everything is sold and the final taxes are known.</p>
+  </header>
+  {# min-w-0 + break-words: at large text sizes the figure wraps instead of
+     pushing the card wider than the screen (WCAG 1.4.4 / 1.4.10). #}
+  <section class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:items-center lg:gap-10">
+    <p class="min-w-0 break-words text-[clamp(1.75rem,9vw,2.5rem)] font-semibold leading-tight tracking-tight tabular-nums">{{ net.total_cents|cents }}</p>
+    <ul class="grid min-w-0 text-sm">
+      {% for label, value, url, hint in net_rows %}
+      <li class="border-t">
+        <a href="{{ url }}" class="group flex min-w-0 items-baseline justify-between gap-4 rounded-md py-2.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50">
+          <span class="min-w-0">
+            <span class="group-hover:underline">{{ label }}</span>
+            {% if hint %}<span class="block text-xs text-muted-foreground">{{ hint }}</span>{% endif %}
+          </span>
+          <span class="shrink-0 font-medium tabular-nums">{{ (value or 0)|cents }}</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {# The one personal action: money this person still has to bring to the bank. #}
+  {% if held_cents %}
+  <footer class="flex-wrap justify-between gap-3 border-t">
+    <p class="text-sm">You hold <span class="font-semibold tabular-nums">{{ held_cents|cents }}</span> for the estate.</p>
+    {% if g.user.role == "admin" and held_cents > 0 %}
+    {{ deposit_dialog(users=users, default_user_id=g.user.id, next_url=url_for('dashboard'), trigger_variant="outline", trigger_class="w-full sm:w-auto") }}
+    {% endif %}
+  </footer>
+  {% endif %}
+</section>
 
-  Two-across rather than three: the cards carry 24px of padding per side, so a
-  three-across row on a 412px screen leaves only ~63px of content width, which
-  clips a label like "Documents" at the mobile 17px type size. Widening to
-  span-3 gives ~126px and it fits. Don't shrink the labels to squeeze in a
-  third column — larger type is the point of the mobile density pass.
-
-  The two money cards get a full row each on mobile. A half-width card leaves
-  ~127px of content, but "$492,501" at the mobile type size still overruns it.
-  |money_compact caps the growth (seven figures collapse to "$1.25M" rather
-  than running unbounded), but it doesn't shrink six-figure totals, which is
-  where most estates sit — so keep the full row. The three plain counts are
-  short and stay two-across.
-
-  Below 360px everything collapses to one column — that's the width users land
-  on at 200% zoom or with a large Android font scale.
-
-  Desktop is unchanged: lg:grid-cols-5, every card spanning one column.
-#}
-<div class="grid grid-cols-1 gap-4 min-[360px]:grid-cols-6 lg:grid-cols-5 mb-6">
-  {{ stat_card(label="Assets",      value=asset_total|money_compact,     value_title=asset_total|money,     delta=asset_count|string ~ " asset" ~ ("s" if asset_count != 1 else ""), class_="min-[360px]:col-span-6 lg:col-span-1") }}
-  {# "unpaid" rather than "N liabilities": the old text merely repeated the
-     label, while the route sums these with `WHERE status != 'Paid'`. Saying
-     "unpaid" here keeps the label short for mobile without the card silently
-     claiming to cover paid liabilities too. See routes/dashboard.py. #}
-  {{ stat_card(label="Liabilities", value=liability_total|money_compact, value_title=liability_total|money, delta=liability_count|string ~ " unpaid", class_="min-[360px]:col-span-6 lg:col-span-1") }}
-  {{ stat_card(label="Timeline",    value=event_count|number,      class_="min-[360px]:col-span-3 lg:col-span-1") }}
-  {{ stat_card(label="Documents",   value=document_count|number,   class_="min-[360px]:col-span-3 lg:col-span-1") }}
-  {{ stat_card(label="Tasks",       value=open_task_count|number,  class_="min-[360px]:col-span-6 lg:col-span-1") }}
-</div>
+{# At a glance: counts only, each one a way into its page. One card holding a
+   list rather than five tall tiles — on a phone it reads as tappable rows, on
+   a wide screen as one row of five. The card's overflow-hidden clips the hover
+   fill to its rounded corners, and the focus ring is inset so it isn't clipped. #}
+{% set glance = [
+  ("Assets", asset_count, url_for("list_assets")),
+  ("Bills to pay", liability_count, url_for("list_liabilities")),
+  ("Open tasks", open_task_count, url_for("list_tasks")),
+  ("Timeline", event_count, url_for("list_events")),
+  ("Documents", document_count, url_for("list_documents")),
+] %}
+<nav aria-label="At a glance" class="card mb-6 gap-0 py-0">
+  <ul class="grid divide-y lg:grid-cols-5 lg:divide-x lg:divide-y-0">
+    {% for label, count, url in glance %}
+    <li>
+      <a href="{{ url }}" class="flex min-h-12 items-center justify-between gap-3 px-5 py-3 outline-none hover:bg-muted/50 focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/50 lg:flex-col lg:items-start lg:justify-center lg:gap-0.5 lg:px-6 lg:py-4">
+        <span class="text-sm text-muted-foreground">{{ label }}</span>
+        <span class="flex items-center gap-2">
+          <span class="text-lg font-semibold tabular-nums">{{ count|number }}</span>
+          <svg class="lucide lucide-chevron-right size-4 text-muted-foreground lg:hidden" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+</nav>
 
 {#
   Type -> badge_variant mapping so each entry type gets a visually
   distinct color across the dashboard timeline.
 #}
 {% set type_badge_variant = {
-  "Meeting": "default",
+  "Meeting": "secondary",
   "Task":    "secondary",
   "Call":    "outline",
   "Email":   "outline",
@@ -132,20 +166,22 @@
   <div class="card">
     <header class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h2>Upcoming Tasks</h2>
-        <p>Open items across the estate.</p>
+        {# Wrapped in a div for the All/Mine toggle, so Basecoat's
+           `.card > header > h2` styles don't reach: restate them. #}
+        <h2 class="text-base font-medium">Upcoming Tasks</h2>
+        <p class="text-sm text-muted-foreground">Open items across the estate.</p>
       </div>
       <div class="flex min-w-max gap-1" role="group" aria-label="Filter by assignee">
         <a
           href="{{ url_for('dashboard') }}"
-          class="btn"
+          class="btn min-w-11"
           data-size="xs"
           data-variant="{{ 'primary' if not my_tasks else 'outline' }}"
           {% if not my_tasks %}aria-current="true"{% endif %}
         >All</a>
         <a
           href="{{ url_for('dashboard', my_tasks=1) }}"
-          class="btn"
+          class="btn min-w-11"
           data-size="xs"
           data-variant="{{ 'primary' if my_tasks else 'outline' }}"
           {% if my_tasks %}aria-current="true"{% endif %}
@@ -165,14 +201,21 @@
           </span>
         {% endset %}
       {% if g.user.role == "admin" %}
-      <form method="post" action="{{ url_for('toggle_task', item_id=row.id) }}" class="dashboard-task-row flex items-start gap-3 py-3 first:pt-0 last:pb-0" data-dashboard-task>
-        <input
-          id="dashboard-task-{{ row.id }}"
-          type="checkbox"
-          class="input dashboard-task-checkbox mt-0.5 shrink-0"
-          data-task-complete
-        />
-        <label for="dashboard-task-{{ row.id }}" class="min-w-0 flex-1 cursor-pointer">{{ task_body }}</label>
+      {# Only the checkbox completes a task. The label wraps just the box (a
+         44px tap area, nudged so the box still lines up with the card's
+         text); the title is plain text, so tapping it to read it can't
+         complete the task by accident. #}
+      <form method="post" action="{{ url_for('toggle_task', item_id=row.id) }}" class="dashboard-task-row flex items-start gap-0.5 py-3 first:pt-0 last:pb-0" data-dashboard-task>
+        <label class="-ml-3 -mt-3 grid size-11 shrink-0 cursor-pointer place-items-center">
+          <input
+            id="dashboard-task-{{ row.id }}"
+            type="checkbox"
+            class="input dashboard-task-checkbox"
+            aria-label="Mark done: {{ row.title }}"
+            data-task-complete
+          />
+        </label>
+        <div class="min-w-0 flex-1">{{ task_body }}</div>
       </form>
       {% else %}
       <div class="flex items-start gap-3 py-3 first:pt-0 last:pb-0">

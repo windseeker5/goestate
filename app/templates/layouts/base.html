@@ -52,7 +52,7 @@
   {% block body %}{% endblock %}
 
   <script src="{{ url_for('static', filename='js/vendor/basecoat.all.min.js') }}?v={{ asset_version('js/vendor/basecoat.all.min.js') }}" defer></script>
-  <script src="{{ url_for('static', filename='js/components/file_upload.js') }}?v={{ asset_version('js/components/file_upload.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/components/push.js') }}?v={{ asset_version('js/components/push.js') }}" defer></script>
   <script src="{{ url_for('static', filename='js/app.js') }}?v={{ asset_version('js/app.js') }}" defer></script>
   {% block scripts %}{% endblock %}
 </body>

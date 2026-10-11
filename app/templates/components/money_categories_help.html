@@ -1,0 +1,44 @@
+{#
+  Help trigger + dialog listing the estate money categories with examples of
+  what goes in each. Shared by the "Add entry" form, the liability form and
+  pay form, and the Money page summary, so the wording lives in one place
+  (the examples themselves come from app/money.py CATEGORIES).
+
+  Usage:
+    from "components/money_categories_help.html" import money_categories_help
+    money_categories_help()                          - icon-only, next to a label
+    money_categories_help(id="...", label="What goes where?")
+
+  Params:
+    id     {string}  Unique dialog id; give each instance on a page its own.
+    label  {string}  Optional visible text next to the icon.
+    trigger_class {string}  Extra classes on the labelled trigger button.
+#}
+{% from "basecoat/dialog.html.jinja" import dialog %}
+
+{% macro money_categories_help(id="money-categories-help", label=None, trigger_class="") %}
+{% set icon = '<svg class="lucide lucide-circle-help size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>' %}
+{% call dialog(
+  id=id,
+  trigger=(icon ~ ' ' ~ label) if label else icon,
+  trigger_attrs=({"class": ("btn inline-flex items-center gap-1.5 " ~ trigger_class)|trim, "data-variant": "link", "data-size": "sm"} if label else {"class": "btn", "data-variant": "ghost", "data-size": "icon-sm", "style": "margin-block: -0.5rem", "aria-label": "What goes in each category?"}),
+  title="Money categories",
+  description="The groups the final account to the heirs and the estate's tax returns use. Pick the closest one."
+) %}
+<div class="grid gap-5 pe-1" style="max-height: 62vh; overflow-y: auto;">
+  {% for direction, heading in [("in", "Money in"), ("out", "Money out")] %}
+  <section>
+    <h3 class="text-sm font-medium mb-2">{{ heading }}</h3>
+    <dl class="grid gap-2.5">
+      {% for key, cat_label, _, examples in money_categories(direction) %}
+      <div>
+        <dt class="text-sm font-medium">{{ cat_label }}</dt>
+        <dd class="text-sm text-muted-foreground">{{ examples }}</dd>
+      </div>
+      {% endfor %}
+    </dl>
+  </section>
+  {% endfor %}
+</div>
+{% endcall %}
+{% endmacro %}

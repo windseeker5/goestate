@@ -1,0 +1,84 @@
+{% extends "layouts/app.html" %}
+{% from "components/page_header.html" import page_header %}
+{% from "components/alert.html" import alert %}
+{% from "components/money_categories_help.html" import money_categories_help %}
+
+{% block title %}Add entry – Estate Copilot{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('money_overview') }}" class="hover:underline text-muted-foreground">Money</a>
+  <span class="mx-2 text-muted-foreground">/</span>
+  Add entry
+{% endblock %}
+
+{% block content %}
+{{ page_header(title="Add entry", description="Money received (insurance cheque, refund…), a bank fee, or an expense paid without a bill in Liabilities.") }}
+
+<div class="max-w-2xl">
+  {% if error %}{{ alert(message=error, variant="destructive") }}{% endif %}
+
+  <div class="card">
+    <section>
+      <form id="entry-form" method="post" class="grid gap-5">
+        <input type="hidden" name="next" value="{{ next_url }}">
+        {% if linked %}
+        <input type="hidden" name="link_asset" value="{{ linked.id }}">
+        <div class="rounded-lg border bg-muted/40 p-4 text-sm">
+          This money is for <strong class="font-semibold">{{ linked.name }}</strong>. When you save, that item is marked <strong class="font-semibold">In bank account</strong> for you.
+        </div>
+        {% endif %}
+        <div class="grid gap-2">
+          <label class="label" for="account_id">Account</label>
+          {% set chosen = form.account_id if form else selected_account %}
+          <select class="select w-full" id="account_id" name="account_id">
+            {% for value, label in sources %}
+            <option value="{{ value }}" {% if value == chosen %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="grid gap-2">
+          <div class="flex items-center gap-1">
+            <label class="label" for="category">Category</label>
+            {{ money_categories_help() }}
+          </div>
+          {% set picked = form.category if form else selected_category %}
+          <select class="select w-full" id="category" name="category" required>
+            <option value="" {% if not picked %}selected{% endif %} disabled>Choose…</option>
+            {% for direction, heading in [("in", "Money in"), ("out", "Money out")] %}
+            <optgroup label="{{ heading }}">
+              {% for key, label, cat_direction, _ in categories if cat_direction == direction and key != "sale" %}
+              <option value="{{ key }}" {% if picked == key %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </optgroup>
+            {% endfor %}
+            <optgroup label="Fix a balance">
+              {% for key, label in corrections %}
+              <option value="{{ key }}" {% if picked == key %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </optgroup>
+          </select>
+          <p class="text-sm text-muted-foreground">The category decides if the money comes in or goes out. Sales come from Assets, bills from Liabilities.</p>
+        </div>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div class="grid gap-2">
+            <label class="label" for="amount">Amount</label>
+            <input class="input" type="text" inputmode="decimal" id="amount" name="amount" value="{{ form.amount if form else prefill.amount }}" placeholder="250.00" required autocomplete="off">
+          </div>
+          <div class="grid gap-2">
+            <label class="label" for="entry_date">Date</label>
+            <input class="input" type="date" id="entry_date" name="entry_date" value="{{ form.entry_date if form else (prefill.entry_date or today) }}" required>
+          </div>
+        </div>
+        <div class="grid gap-2">
+          <label class="label" for="description">Description</label>
+          <input class="input" type="text" id="description" name="description" value="{{ form.description if form else prefill.description }}" placeholder="e.g. Life insurance cheque, monthly bank fee" required>
+        </div>
+      </form>
+    </section>
+    <footer class="justify-end gap-2">
+      <a href="{{ next_url }}" class="btn" data-variant="ghost">Cancel</a>
+      <button type="submit" form="entry-form" class="btn">Save entry</button>
+    </footer>
+  </div>
+</div>
+
+{% endblock %}

@@ -36,11 +36,24 @@ def create_app(config_object=DevConfig):
         return Markup(clean_html)
 
     # One policy for every figure in the app — see app/formatting.py.
-    from app.formatting import money, money_compact, number
+    from app.formatting import cents, money, money_compact, number
 
     app.add_template_filter(money, "money")
+    app.add_template_filter(cents, "cents")
     app.add_template_filter(money_compact, "money_compact")
     app.add_template_filter(number, "number")
+
+    @app.template_global()
+    def today_iso():
+        """Today's date as YYYY-MM-DD, the default for date inputs."""
+        from datetime import date
+        return date.today().isoformat()
+
+    @app.template_global()
+    def money_categories(direction=None):
+        """The fixed estate money categories (key, label, direction, examples)."""
+        from app.money import CATEGORIES
+        return [c for c in CATEGORIES if direction is None or c[2] == direction]
 
     @app.template_global()
     def asset_version(static_relative_path):
@@ -76,10 +89,17 @@ def create_app(config_object=DevConfig):
 
     # Plain functions, one file per domain. No blueprints — this is a
     # single-user local app, so the extra indirection isn't worth it.
-    from app.routes import public, dashboard, assets, liabilities, events, documents, chat, users, tasks, backup
+    from app.routes import public, dashboard, assets, liabilities, money, events, documents, chat, users, tasks, backup, push
 
-    for module in (public, dashboard, assets, liabilities, events, documents, chat, users, tasks, backup):
+    for module in (public, dashboard, assets, liabilities, money, events, documents, chat, users, tasks, backup, push):
         module.register(app)
+
+    @app.context_processor
+    def _inject_vapid_public_key():
+        # Only offer the "Enable notifications" toggle when push is actually
+        # configured (see app/push.py) — an empty key means the .env vars
+        # were never set, not that something is broken.
+        return {"vapid_public_key": app.config.get("VAPID_PUBLIC_KEY")}
 
     from app.commands import init_db_command, reindex_all_command, verify_vec_command
     app.cli.add_command(init_db_command)

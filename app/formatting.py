@@ -103,3 +103,15 @@ def number(value, blank=BLANK):
     if number_value is None:
         return blank
     return f"{number_value:,.0f}"
+
+
+def cents(value, blank=BLANK, signed=False):
+    """INTEGER cents from the money tables (app/money.py) -> money().
+
+    signed=True prefixes "+" on money coming in, so a register column reads
+    +$1,000.00 / -$180.00 at a glance.
+    """
+    if value is None:
+        return blank
+    text = money(value / 100, blank=blank)
+    return ("+" + text) if signed and value > 0 else text

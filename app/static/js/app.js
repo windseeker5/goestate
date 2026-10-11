@@ -128,3 +128,10 @@ document.addEventListener("change", (event) => {
   const countEl = bar.querySelector("[data-bulk-selected-count]");
   if (countEl) countEl.textContent = String(checked);
 });
+
+// Sidebar group labels ("Main", "Knowledge Base") are vendored Basecoat <h3>s
+// that sit before the page's <h1>, so heading navigation lands on them first.
+// They still name their group through aria-labelledby, which keeps working
+// with the heading role removed. Done here, not in the vendored macro, so
+// `npm run sync:basecoat` can't undo it.
+document.querySelectorAll(".sidebar nav h3").forEach((h) => h.setAttribute("role", "presentation"));

@@ -1,0 +1,59 @@
+{#
+  "Record deposit" button + dialog: a person puts cash they hold into the
+  estate bank account. Shared by the dashboard and the Money page.
+
+  Usage:
+    {% from "components/deposit_dialog.html" import deposit_dialog %}
+    {{ deposit_dialog(users=users, default_user_id=g.user.id, next_url=request.path) }}
+
+  Params:
+    users           {list}   Rows with id, name, email (who can deposit).
+    default_user_id {int}    Pre-selected person (usually the current user).
+    next_url        {string} Where to land after saving (relative path).
+    id              {string} Dialog id, unique per page.
+    trigger_variant {string} Button data-variant for the trigger ("" = primary).
+    trigger_class   {string} Extra classes on the trigger, e.g. "w-full sm:w-auto".
+#}
+{% from "basecoat/dialog.html.jinja" import dialog %}
+
+{% macro deposit_dialog(users, default_user_id, next_url, id="deposit-dialog", trigger_variant="", trigger_class="") %}
+{% set trigger_attrs = {"class": ("btn " ~ trigger_class).strip()} %}
+{% if trigger_variant %}{% set _ = trigger_attrs.update({"data-variant": trigger_variant}) %}{% endif %}
+{% call dialog(
+  id=id,
+  trigger='<svg data-icon="inline-start" class="lucide lucide-landmark" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 18v-7"/><path d="M11.12 2.198a2 2 0 0 1 1.76.006l7.866 3.847c.476.233.31.949-.22.949H3.474c-.53 0-.695-.716-.22-.949z"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M3 22h18"/><path d="M6 18v-7"/></svg> Record deposit',
+  trigger_attrs=trigger_attrs,
+  title="Record a deposit",
+  description="Cash you held for the estate that you put into the estate bank account."
+) %}
+<form id="{{ id }}-form" method="post" action="{{ url_for('money_deposit') }}" class="grid gap-4">
+  <input type="hidden" name="next" value="{{ next_url }}">
+  <div class="grid gap-2">
+    <label class="label" for="{{ id }}-user">Who deposited</label>
+    <select class="select w-full" id="{{ id }}-user" name="user_id">
+      {% for u in users %}
+      <option value="{{ u.id }}" {% if u.id == default_user_id %}selected{% endif %}>{{ u.name or u.email.split('@')[0] }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    <div class="grid gap-2">
+      <label class="label" for="{{ id }}-amount">Amount</label>
+      <input class="input" type="text" inputmode="decimal" id="{{ id }}-amount" name="amount" placeholder="1000.00" required autocomplete="off">
+    </div>
+    <div class="grid gap-2">
+      <label class="label" for="{{ id }}-date">Date</label>
+      <input class="input" type="date" id="{{ id }}-date" name="entry_date" value="{{ today_iso() }}" required>
+    </div>
+  </div>
+  <div class="grid gap-2">
+    <label class="label" for="{{ id }}-note">Note <span class="text-muted-foreground font-normal">(optional)</span></label>
+    <input class="input" type="text" id="{{ id }}-note" name="description" placeholder="e.g. Cash deposit at the branch">
+  </div>
+  <div class="flex justify-end gap-2">
+    <button type="button" class="btn" data-variant="ghost" onclick="this.closest('dialog').close()">Cancel</button>
+    <button type="submit" class="btn">Save deposit</button>
+  </div>
+</form>
+{% endcall %}
+{% endmacro %}

@@ -1,9 +1,11 @@
 from flask import abort, redirect, render_template, request, url_for
 
+from app import money
 from app.auth import admin_required
 from app.db import get_db
 from app.document_storage import attach_documents
 from app.photo_storage import PhotoValidationError, delete_photo, save_photo, send_photo
+from app.push import notify_all
 
 PAGE_SIZE = 10
 STATUSES = ["Unpaid", "Paid", "Disputed", "Cancelled"]
@@ -57,6 +59,7 @@ def register(app):
             page=page,
             total_pages=total_pages,
             total=total,
+            category_labels=money.CATEGORY_LABELS,
         )
 
     @app.route("/app/liabilities/new", methods=["GET", "POST"])
@@ -67,30 +70,35 @@ def register(app):
             photo_path = None
             photo_mime_type = None
             try:
+                category = money.parse_bill_category(request.form.get("category"))
                 photo = request.files.get("photo")
                 if photo and photo.filename:
                     photo_path, photo_mime_type = save_photo(photo, "liabilities")
+                creditor = request.form.get("creditor", "").strip()
                 cur = db.execute(
                     "INSERT INTO liabilities "
-                    "(creditor, description, amount, due_date, status, notes, photo_path, photo_mime_type) "
-                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    "(creditor, description, amount, due_date, status, category, notes, photo_path, photo_mime_type) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
-                        request.form.get("creditor", "").strip(),
+                        creditor,
                         request.form.get("description", "").strip(),
                         request.form.get("amount") or 0,
                         request.form.get("due_date") or None,
                         request.form.get("status", "Unpaid"),
+                        category,
                         request.form.get("notes", "").strip(),
                         photo_path,
                         photo_mime_type,
                     ),
                 )
                 db.commit()
-            except PhotoValidationError as exc:
+                notify_all(db, "New liability added", creditor, url_for("detail_liability", item_id=cur.lastrowid))
+            except (PhotoValidationError, money.MoneyError) as exc:
                 return render_template(
                     "blocks/liabilities_form.html",
                     item=None,
                     statuses=STATUSES,
+                    categories=money.BILL_CATEGORIES,
                     form_data=request.form,
                     error=str(exc),
                 ), 400
@@ -100,7 +108,8 @@ def register(app):
                 raise
             return redirect(url_for("detail_liability", item_id=cur.lastrowid))
         return render_template(
-            "blocks/liabilities_form.html", item=None, statuses=STATUSES, form_data=None
+            "blocks/liabilities_form.html", item=None, statuses=STATUSES,
+            categories=money.BILL_CATEGORIES, form_data=None
         )
 
     @app.route("/app/liabilities/<int:item_id>")
@@ -114,7 +123,19 @@ def register(app):
             "ORDER BY created_at DESC",
             (item_id,),
         ).fetchall()
-        return render_template("blocks/liabilities_detail.html", item=item, documents=documents)
+        users = db.execute("SELECT id, name, email FROM users ORDER BY name").fetchall()
+        sources = money.payment_sources(db, users)
+        return render_template(
+            "blocks/liabilities_detail.html",
+            item=item,
+            documents=documents,
+            payments=money.liability_payments(db, item_id),
+            sources=sources,
+            categories=money.BILL_CATEGORIES,
+            category_label=money.CATEGORY_LABELS.get(item["category"]),
+            saved=request.args.get("saved"),
+            error=request.args.get("error"),
+        )
 
     @app.route("/app/liabilities/<int:item_id>/documents/upload", methods=["POST"])
     @admin_required
@@ -191,6 +212,13 @@ def register(app):
         if item is None:
             abort(404)
         if request.method == "POST":
+            try:
+                category = money.parse_bill_category(request.form.get("category"))
+            except money.MoneyError as exc:
+                return render_template(
+                    "blocks/liabilities_form.html", item=item, statuses=STATUSES,
+                    categories=money.BILL_CATEGORIES, form_data=request.form, error=str(exc)
+                ), 400
             db.execute(
                 "UPDATE liabilities SET creditor=?, description=?, amount=?, due_date=?, status=?, notes=?, "
                 "updated_at=strftime('%Y-%m-%dT%H:%M:%SZ','now') WHERE id=?",
@@ -204,10 +232,12 @@ def register(app):
                     item_id,
                 ),
             )
+            money.set_liability_category(db, item_id, category)
             db.commit()
             return redirect(url_for("detail_liability", item_id=item_id))
         return render_template(
-            "blocks/liabilities_form.html", item=item, statuses=STATUSES, form_data=None
+            "blocks/liabilities_form.html", item=item, statuses=STATUSES,
+            categories=money.BILL_CATEGORIES, form_data=None
         )
 
     @app.route("/app/liabilities/<int:item_id>/delete", methods=["POST"])

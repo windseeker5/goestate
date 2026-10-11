@@ -6,6 +6,7 @@ from app.auth import admin_required
 from app.db import get_db
 from app.document_storage import attach_documents, documents_uploads_dir
 from app.ingestion import ingest_document
+from app.push import notify_all
 
 
 def _redirect_for_document(doc):
@@ -18,6 +19,8 @@ def _redirect_for_document(doc):
         return url_for("detail_asset", item_id=doc["linked_entity_id"])
     if doc["linked_entity_type"] == "liability" and doc["linked_entity_id"]:
         return url_for("detail_liability", item_id=doc["linked_entity_id"])
+    if doc["linked_entity_type"] in ("opening_balance", "reconciliation"):
+        return url_for("money_overview")
     return url_for("list_documents")
 
 
@@ -45,6 +48,8 @@ def register(app):
         files = [f for f in request.files.getlist("file") if f and f.filename]
         if files:
             attach_documents(db, None, None, files)
+            body = files[0].filename if len(files) == 1 else f"{len(files)} files uploaded"
+            notify_all(db, "New document uploaded", body, url_for("list_documents"))
         return redirect(url_for("list_documents"))
 
     @app.route("/app/documents/<int:document_id>/inspect")

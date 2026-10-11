@@ -1,0 +1,28 @@
+{#
+  "Enable notifications" toggle: subscribes/unsubscribes this device for Web
+  Push (new asset/liability/document/event alerts). Per-device state, so it
+  lives in the sidebar footer next to Appearance rather than on /app/settings
+  (admin-only) — every role should be able to opt their own phone in.
+
+  Renders unchecked server-side; static/js/components/push.js is the only
+  thing that flips it, based on whether a live PushSubscription already
+  exists for this browser. Hidden entirely (via JS) when the browser lacks
+  Push support or VAPID_PUBLIC_KEY isn't configured.
+
+  Usage:
+    {% from "components/push_toggle.html" import push_toggle %}
+    {{ push_toggle(vapid_public_key) }}
+#}
+{% macro push_toggle(vapid_public_key) %}
+{% if vapid_public_key %}
+<div class="w-full px-2 mt-2" data-push-toggle-wrap>
+  <label class="flex items-center justify-between gap-2 rounded-lg bg-muted px-3 py-2 cursor-pointer">
+    <span class="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+      <svg class="lucide lucide-bell size-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
+      Notifications
+    </span>
+    <input type="checkbox" class="input size-4" data-push-toggle data-vapid-public-key="{{ vapid_public_key }}" />
+  </label>
+</div>
+{% endif %}
+{% endmacro %}

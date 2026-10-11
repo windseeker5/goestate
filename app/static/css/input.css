@@ -193,10 +193,12 @@
     transform: translateX(0.5rem);
   }
 
-  .dashboard-task-checkbox.input {
-    width: 1.125rem;
-    min-height: 1.125rem;
-    height: 1.125rem;
+  /* Square 20px box. The selector mirrors Basecoat's own checkbox rule
+     (.input[type='checkbox']:not([role='switch'])) so it outranks its width. */
+  .dashboard-task-checkbox.input[type='checkbox']:not([role='switch']) {
+    width: 1.25rem;
+    min-height: 1.25rem;
+    height: 1.25rem;
   }
 
   @media (prefers-reduced-motion: reduce) {
